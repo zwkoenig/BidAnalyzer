@@ -75,6 +75,7 @@ export default function App() {
   const [selectedContractor, setSelectedContractor] = useState<string>("");
   const [labelsOpen, setLabelsOpen] = useState<boolean>(true); // whole Labels & Budget card collapse
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false); // inner advanced section
+  const [dataEntryOpen, setDataEntryOpen] = useState<boolean>(true); // collapse Data Entry card
 
   // file input refs
   const snapshotInputRef = useRef<HTMLInputElement>(null);
@@ -493,12 +494,12 @@ export default function App() {
             <img
               src="/logo.png"
               alt="Company Logo"
-              className="h-20 w-auto rounded-md"
+              className="h-16 md:h-20 w-auto rounded-md"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
             />
-            <h1 className="text-2xl font-semibold tracking-tight">Construction BidAnalyzer</h1>
+            <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Construction BidAnalyzer</h1>
           </div>
           <div className="flex items-center gap-2">
             <button
@@ -603,76 +604,88 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bidder Input Table Card (just below Controls) */}
+        {/* Bidder Input Table Card (scrollable + collapsible) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
-          <div className="overflow-x-auto">
-            <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
-              <thead className="bg-stone-50 sticky top-0 z-10">
-                <tr className="text-left text-stone-700">
-                  <th className="px-4 py-2 border-b border-stone-200">Contractor</th>
-                  <th className="px-4 py-2 border-b border-stone-200">Base Bid ($)</th>
-                  {Array.from({ length: numAlternates }, (_, idx) => (
-                    <th key={idx} className="px-4 py-2 border-b border-stone-200">
-                      {altLabels[idx] ?? `Alt ${idx + 1}`}
-                      <div className="text-xs text-stone-500 italic">($)</div>
-                    </th>
-                  ))}
-                  {has2A && (
-                    <th className="px-4 py-2 border-b border-stone-200">
-                      {alt2ALabel}
-                      <div className="text-xs text-stone-500 italic">($)</div>
-                    </th>
-                  )}
-                  <th className="px-4 py-2 border-b border-stone-200">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
-                {bidders.map((b) => (
-                  <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
-                    <td className="px-4 py-2 border-b border-stone-100">
-                      <input
-                        type="text"
-                        value={b.name}
-                        onChange={(e) => updateBidder(b.id, "name", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      />
-                    </td>
-                    <td className="px-4 py-2 border-b border-stone-100">
-                      <input
-                        type="number"
-                        value={b.baseBid}
-                        onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      />
-                    </td>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-semibold text-stone-800">Data Entry</h2>
+            <button
+              onClick={() => setDataEntryOpen((v) => !v)}
+              className="text-sm text-stone-700 hover:text-stone-900"
+            >
+              {dataEntryOpen ? "Collapse ▾" : "Expand ▸"}
+            </button>
+          </div>
+
+          {dataEntryOpen && (
+            <div className="overflow-auto max-h-[520px] rounded-xl border border-stone-200">
+              <table className="w-full min-w-[1100px]">
+                <thead className="bg-stone-50 sticky top-0 z-10">
+                  <tr className="text-left text-stone-700">
+                    <th className="px-4 py-2 border-b border-stone-200 min-w-[14rem]">Contractor</th>
+                    <th className="px-4 py-2 border-b border-stone-200 min-w-[9rem]">Base Bid ($)</th>
                     {Array.from({ length: numAlternates }, (_, idx) => (
-                      <td key={idx} className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="number"
-                          value={b.alternates[idx] || 0}
-                          onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
-                      </td>
+                      <th key={idx} className="px-4 py-2 border-b border-stone-200 min-w-[8rem]">
+                        {altLabels[idx] ?? `Alt ${idx + 1}`}
+                        <div className="text-xs text-stone-500 italic">($)</div>
+                      </th>
                     ))}
                     {has2A && (
+                      <th className="px-4 py-2 border-b border-stone-200 min-w-[8rem]">
+                        {alt2ALabel}
+                        <div className="text-xs text-stone-500 italic">($)</div>
+                      </th>
+                    )}
+                    <th className="px-4 py-2 border-b border-stone-200 min-w-[6rem]">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
+                  {bidders.map((b) => (
+                    <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
+                      <td className="px-4 py-2 border-b border-stone-100">
+                        <input
+                          type="text"
+                          value={b.name}
+                          onChange={(e) => updateBidder(b.id, "name", e.target.value)}
+                          className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                        />
+                      </td>
                       <td className="px-4 py-2 border-b border-stone-100">
                         <input
                           type="number"
-                          value={b.alternate2A || 0}
-                          onChange={(e) => updateAlternate2A(b.id, e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                          value={b.baseBid}
+                          onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)}
+                          className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
                         />
                       </td>
-                    )}
-                    <td className="px-4 py-2 border-b border-stone-100 text-center">
-                      <button onClick={() => removeBidder(b.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
+                      {Array.from({ length: numAlternates }, (_, idx) => (
+                        <td key={idx} className="px-4 py-2 border-b border-stone-100">
+                          <input
+                            type="number"
+                            value={b.alternates[idx] || 0}
+                            onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
+                            className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                          />
+                        </td>
+                      ))}
+                      {has2A && (
+                        <td className="px-4 py-2 border-b border-stone-100">
+                          <input
+                            type="number"
+                            value={b.alternate2A || 0}
+                            onChange={(e) => updateAlternate2A(b.id, e.target.value)}
+                            className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                          />
+                        </td>
+                      )}
+                      <td className="px-4 py-2 border-b border-stone-100 text-center">
+                        <button onClick={() => removeBidder(b.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
         </div>
 
         {/* Winning Percentages Card */}
