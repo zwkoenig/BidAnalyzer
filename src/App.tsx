@@ -1,8 +1,5 @@
 // App.tsx — Bid Analyzer (React + TypeScript + Tailwind)
-// Change log for this version:
-//  - Removed the "Alternate Sensitivity" card and all related logic
-//  - Made the "Budget Frontier" card collapsible (using <details>)
-//  - Keeps all other recent features (refresh button, logo, scrollable data entry, etc.)
+// Consistency update: Budget Frontier now uses the same button-style collapse as other cards.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, RefreshCw, Save, FolderOpen, FileDown } from "lucide-react";
@@ -73,6 +70,7 @@ export default function App() {
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
   const [dataEntryOpen, setDataEntryOpen] = useState<boolean>(true);
   const [topCombosOpen, setTopCombosOpen] = useState<boolean>(true);
+  const [frontierOpen, setFrontierOpen] = useState<boolean>(true);
 
   // file input refs
   const snapshotInputRef = useRef<HTMLInputElement>(null);
@@ -703,7 +701,7 @@ export default function App() {
               ) : (
                 <div className="space-y-3 max-h-96 overflow-y-auto">
                   {filteredCombinations.slice(0, topN).map((c, i) => (
-                    <div key={i} className="border border-stone-200 rounded-xl p-3">
+                    <div key={i} className="border border-stone-200 rounded-2xl p-3">
                       <div className="font-medium text-stone-700 mb-1">{c.alternates}</div>
                       <div className="bg-emerald-50 p-2 rounded border-l-4 border-emerald-500">
                         <div className="flex justify-between items-center">
@@ -727,31 +725,33 @@ export default function App() {
           )}
         </div>
 
-        {/* NEW: Budget Frontier Card (collapsible via <details>) */}
+        {/* Budget Frontier Card (collapsible - consistent style) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <details open>
-            <summary className="flex items-center justify-between mb-2 cursor-pointer list-none">
-              <h2 className="text-xl font-semibold text-stone-800">Budget Frontier</h2>
-              <span className="text-sm text-stone-700 hover:text-stone-900 select-none">Toggle ▾</span>
-            </summary>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-semibold text-stone-800">Budget Frontier</h2>
+            <button onClick={() => setFrontierOpen((v) => !v)} className="text-sm text-stone-700 hover:text-stone-900">{frontierOpen ? "Collapse ▾" : "Expand ▸"}</button>
+          </div>
 
-            <p className="text-xs text-stone-500 mb-3">Best (lowest total) winning scenario for each number of alternates selected. Helps compare scope size vs. cost.</p>
-            {budgetFrontier.length === 0 ? (
-              <div className="text-stone-700 italic">No scenarios available.</div>
-            ) : (
-              <div className="space-y-2">
-                {budgetFrontier.map(({ k, combo }) => (
-                  <div key={k} className="p-3 rounded-xl border border-stone-200 bg-stone-50">
-                    <div className="flex flex-wrap items-center justify-between gap-2">
-                      <div className="text-stone-800 font-medium">k = {k}</div>
-                      <div className="text-stone-700">{combo.alternates}</div>
-                      <div className="text-stone-900 font-semibold">{combo.winner.name} · {fmt$(combo.winner.total)}</div>
+          {frontierOpen && (
+            <>
+              <p className="text-xs text-stone-500 mb-3">Best (lowest total) winning scenario for each number of alternates selected. Helps compare scope size vs. cost.</p>
+              {budgetFrontier.length === 0 ? (
+                <div className="text-stone-700 italic">No scenarios available.</div>
+              ) : (
+                <div className="space-y-2">
+                  {budgetFrontier.map(({ k, combo }) => (
+                    <div key={k} className="p-3 rounded-xl border border-stone-200 bg-stone-50">
+                      <div className="flex flex-wrap items-center justify-between gap-2">
+                        <div className="text-stone-800 font-medium">k = {k}</div>
+                        <div className="text-stone-700">{combo.alternates}</div>
+                        <div className="text-stone-900 font-semibold">{combo.winner.name} · {fmt$(combo.winner.total)}</div>
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </details>
+                  ))}
+                </div>
+              )}
+            </>
+          )}
         </div>
 
         {/* Alternate Labels & Budget Card — whole card collapsible */}
