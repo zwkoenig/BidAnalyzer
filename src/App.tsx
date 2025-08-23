@@ -1,5 +1,6 @@
 // App.tsx — Bid Analyzer (Vite + React + TypeScript + Tailwind)
-// Libraries used: react, react-dom, lucide-react, xlsx
+// Libraries: react, react-dom, lucide-react, xlsx
+// Logo: place your logo file at public/logo.png OR replace src="/logo.png" below with your hosted logo URL.
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, RefreshCw, Save, FolderOpen, FileDown } from "lucide-react";
@@ -42,7 +43,7 @@ const STORAGE_KEY = "bidanalyzer_state_v1";
 
 // ----- Defaults for Refresh -----
 const INITIAL_NUM_ALTERNATES = 2;
-const INITIAL_HAS2A = false; // default unchecked per request
+const INITIAL_HAS2A = false; // default unchecked
 const INITIAL_XOR34 = false;
 const INITIAL_ALT_LABELS = ["Alt 1", "Alt 2"];
 const INITIAL_ALT2A_LABEL = "Alt 2A";
@@ -488,7 +489,17 @@ export default function App() {
       {/* Header bar */}
       <div className="bg-blue-300 text-blue-900 py-4 shadow-md">
         <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-3">
-          <h1 className="text-2xl font-semibold tracking-tight">Bid Analyzer</h1>
+          <div className="flex items-center gap-3">
+            <img
+              src="/logo.png"
+              alt="Company Logo"
+              className="h-8 w-auto rounded-md"
+              onError={(e) => {
+                (e.currentTarget as HTMLImageElement).style.display = "none";
+              }}
+            />
+            <h1 className="text-2xl font-semibold tracking-tight">Construction BidAnalyzer</h1>
+          </div>
           <div className="flex items-center gap-2">
             <button
               onClick={resetData}
@@ -547,7 +558,7 @@ export default function App() {
               Include Alt 2A (mutually exclusive with Alt 2)
             </label>
 
-            {/* Alt 3 vs Alt 4 back to top */}
+            {/* Alt 3 vs Alt 4 at the top controls */}
             <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
               <input
                 type="checkbox"
@@ -592,7 +603,7 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bidder Input Table Card (moved just below Controls) */}
+        {/* Bidder Input Table Card (just below Controls) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
           <div className="overflow-x-auto">
             <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
