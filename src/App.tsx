@@ -1,6 +1,6 @@
-// App.tsx — Bid Analyzer (Vite + React + TypeScript + Tailwind)
-// Libraries: react, react-dom, lucide-react, xlsx
-// Logo: place your logo file at public/logo.png OR replace src="/logo.png" below with your hosted logo URL.
+// App.tsx — Bid Analyzer (Vite/CRA + React + TypeScript + Tailwind)
+// New cards added: Alternate Sensitivity & Budget Frontier
+// Place your logo at public/logo.png (or change src below).
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, RefreshCw, Save, FolderOpen, FileDown } from "lucide-react";
@@ -463,6 +463,82 @@ export default function App() {
       .sort((a, b) => b.pct - a.pct);
   }, [bidders, filteredCombinations]);
 
+  // Map for quick combo lookup by key (for sensitivity pairs)
+  const comboKey = (combo: AltIndex[]) =>
+    combo
+      .map((c) => (c === "alt2A" ? "2A" : String(c)))
+      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
+      .join("|");
+
+  const filteredMap = useMemo(() => {
+    const m = new Map<string, ComboResult>();
+    for (const c of filteredCombinations) m.set(comboKey(c.alternateIndices), c);
+    return m;
+  }, [filteredCombinations]);
+
+  // Alternate Sensitivity: include %, win swings, avg Δ winner total, top beneficiary
+  type AltSense = {
+    key: AltIndex;
+    label: string;
+    includePct: number;
+    swings: number;
+    avgDelta: number; // avg (winner total with alt) - (winner total without alt) across paired scenarios
+    topBeneficiary?: string;
+  };
+
+  const altSensitivity: AltSense[] = useMemo(() => {
+    const U = allAlternatesUniverse;
+    const totalCombos = filteredCombinations.length || 1;
+    const out: AltSense[] = [];
+
+    for (const alt of U) {
+      let includeCount = 0;
+      let pairs = 0;
+      let swings = 0;
+      let deltaSum = 0;
+      const beneficiaryCounts = new Map<string, number>();
+
+      for (const c of filteredCombinations) {
+        if (!c.alternateIndices.includes(alt)) continue;
+        includeCount++;
+        const counterpartIndices = c.alternateIndices.filter((x) => x !== alt);
+        const counterpart = filteredMap.get(comboKey(counterpartIndices));
+        if (!counterpart) continue; // counterpart filtered out (e.g., budget)
+        pairs++;
+        const d = c.winner.total - counterpart.winner.total;
+        deltaSum += d;
+        if (c.winner.name !== counterpart.winner.name) {
+          swings++;
+          beneficiaryCounts.set(c.winner.name, (beneficiaryCounts.get(c.winner.name) || 0) + 1);
+        }
+      }
+
+      const topBeneficiary = [...beneficiaryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
+
+      out.push({
+        key: alt,
+        label: labelFor(alt),
+        includePct: (includeCount / totalCombos) * 100,
+        swings,
+        avgDelta: pairs ? deltaSum / pairs : 0,
+        topBeneficiary,
+      });
+    }
+
+    return out.sort((a, b) => b.swings - a.swings || b.includePct - a.includePct);
+  }, [allAlternatesUniverse, filteredCombinations, filteredMap, alt2ALabel, altLabels]);
+
+  // Budget Frontier: best (lowest total) scenario for each k = # of alternates selected
+  const budgetFrontier = useMemo(() => {
+    const bestByK = new Map<number, ComboResult>();
+    for (const c of filteredCombinations) {
+      const k = c.alternateIndices.length;
+      const prev = bestByK.get(k);
+      if (!prev || c.winner.total < prev.winner.total) bestByK.set(k, c);
+    }
+    return [...bestByK.entries()].sort((a, b) => a[0] - b[0]).map(([k, combo]) => ({ k, combo }));
+  }, [filteredCombinations]);
+
   // --------- export (analysis CSV) ---------
   const exportToCSV = () => {
     const headers = [
@@ -858,6 +934,61 @@ export default function App() {
           )}
         </div>
 
+        {/* NEW: Alternate Sensitivity Card */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-stone-800 mb-2">Alternate Sensitivity</h2>
+          <p className="text-xs text-stone-500 mb-3">How impactful each alternate is across valid scenarios (after budget), based on inclusion rate, winner swings, and the average effect on the winning total when toggled on/off.</p>
+          {altSensitivity.length === 0 ? (
+            <div className="text-stone-700 italic">No scenarios available.</div>
+          ) : (
+            <div className="overflow-auto">
+              <table className="w-full min-w-[720px] text-sm">
+                <thead className="bg-stone-50 text-stone-700">
+                  <tr>
+                    <th className="px-3 py-2 text-left">Alternate</th>
+                    <th className="px-3 py-2 text-right">Include %</th>
+                    <th className="px-3 py-2 text-right">Win Swings</th>
+                    <th className="px-3 py-2 text-right">Avg Δ Winner Total</th>
+                    <th className="px-3 py-2 text-left">Top Beneficiary</th>
+                  </tr>
+                </thead>
+                <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
+                  {altSensitivity.map((row, i) => (
+                    <tr key={i}>
+                      <td className="px-3 py-2">{row.label}</td>
+                      <td className="px-3 py-2 text-right">{row.includePct.toFixed(1)}%</td>
+                      <td className="px-3 py-2 text-right">{row.swings}</td>
+                      <td className="px-3 py-2 text-right">{fmt$(row.avgDelta)}</td>
+                      <td className="px-3 py-2">{row.topBeneficiary ?? "—"}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          )}
+        </div>
+
+        {/* NEW: Budget Frontier Card */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-stone-800 mb-2">Budget Frontier</h2>
+          <p className="text-xs text-stone-500 mb-3">Best (lowest total) winning scenario for each number of alternates selected. Helps compare scope size vs. cost.</p>
+          {budgetFrontier.length === 0 ? (
+            <div className="text-stone-700 italic">No scenarios available.</div>
+          ) : (
+            <div className="space-y-2">
+              {budgetFrontier.map(({ k, combo }) => (
+                <div key={k} className="p-3 rounded-xl border border-stone-200 bg-stone-50">
+                  <div className="flex flex-wrap items-center justify-between gap-2">
+                    <div className="text-stone-800 font-medium">k = {k}</div>
+                    <div className="text-stone-700">{combo.alternates}</div>
+                    <div className="text-stone-900 font-semibold">{combo.winner.name} · {fmt$(combo.winner.total)}</div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
         {/* Alternate Labels & Budget Card — whole card collapsible */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-2">
@@ -928,7 +1059,7 @@ export default function App() {
                         className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
                         placeholder="Leave blank for no cap"
                       />
-                      <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, and contractor scenarios.</div>
+                      <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, Sensitivity, Frontier, and contractor scenarios.</div>
                     </div>
 
                     <div className="flex items-center gap-3">
