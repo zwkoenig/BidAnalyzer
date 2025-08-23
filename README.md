@@ -13,6 +13,6 @@ It includes Tailwind, lucide-react, and xlsx.
 
 ## Dev
 ```bash
-npm install
+npm install 
 npm run dev 
 ```
