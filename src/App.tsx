@@ -1,6 +1,8 @@
-// App.tsx — Bid Analyzer (Vite/CRA + React + TypeScript + Tailwind)
-// New cards added: Alternate Sensitivity & Budget Frontier
-// Place your logo at public/logo.png (or change src below).
+// App.tsx — Bid Analyzer (React + TypeScript + Tailwind)
+// Change log for this version:
+//  - Removed the "Alternate Sensitivity" card and all related logic
+//  - Made the "Budget Frontier" card collapsible (using <details>)
+//  - Keeps all other recent features (refresh button, logo, scrollable data entry, etc.)
 
 import React, { useEffect, useMemo, useRef, useState } from "react";
 import { Upload, RefreshCw, Save, FolderOpen, FileDown } from "lucide-react";
@@ -23,25 +25,19 @@ type ComboResult = {
   allBids: { name: string; total: number }[]; // sorted ascending by total
 };
 
-const fmt$ = (n: number) =>
-  `$${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
+const fmt$ = (n: number) => `$${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
-function enforceSelectionXOR(
-  selection: AltIndex[],
-  rules: Array<[AltIndex, AltIndex]>
-) {
+function enforceSelectionXOR(selection: AltIndex[], rules: Array<[AltIndex, AltIndex]>) {
   const set = new Set<AltIndex>(selection);
   for (const [a, b] of rules) {
-    if (set.has(a) && set.has(b)) {
-      set.delete(b);
-    }
+    if (set.has(a) && set.has(b)) set.delete(b);
   }
   return Array.from(set);
 }
 
 const STORAGE_KEY = "bidanalyzer_state_v1";
 
-// ----- Defaults for Refresh -----
+// ----- Defaults -----
 const INITIAL_NUM_ALTERNATES = 2;
 const INITIAL_HAS2A = false; // default unchecked
 const INITIAL_XOR34 = false;
@@ -73,10 +69,10 @@ export default function App() {
   // UI state
   const [selectedAlternates, setSelectedAlternates] = useState<AltIndex[]>([]);
   const [selectedContractor, setSelectedContractor] = useState<string>("");
-  const [labelsOpen, setLabelsOpen] = useState<boolean>(true); // whole Labels & Budget card collapse
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false); // inner advanced section
-  const [dataEntryOpen, setDataEntryOpen] = useState<boolean>(true); // collapse Data Entry card
-  const [topCombosOpen, setTopCombosOpen] = useState<boolean>(true); // collapse Top Combinations
+  const [labelsOpen, setLabelsOpen] = useState<boolean>(true);
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+  const [dataEntryOpen, setDataEntryOpen] = useState<boolean>(true);
+  const [topCombosOpen, setTopCombosOpen] = useState<boolean>(true);
 
   // file input refs
   const snapshotInputRef = useRef<HTMLInputElement>(null);
@@ -216,61 +212,30 @@ export default function App() {
     const newId = Math.max(0, ...bidders.map((b) => b.id)) + 1;
     setBidders((prev) => [
       ...prev,
-      {
-        id: newId,
-        name: `Contractor ${String.fromCharCode(65 + prev.length)}`,
-        baseBid: 0,
-        alternates: Array(numAlternates).fill(0),
-        alternate2A: 0,
-      },
+      { id: newId, name: `Contractor ${String.fromCharCode(65 + prev.length)}`, baseBid: 0, alternates: Array(numAlternates).fill(0), alternate2A: 0 },
     ]);
   };
 
-  const removeBidder = (id: number) =>
-    setBidders((prev) => prev.filter((b) => b.id !== id));
+  const removeBidder = (id: number) => setBidders((prev) => prev.filter((b) => b.id !== id));
 
-  const updateBidder = (
-    id: number,
-    field: keyof Bidder,
-    value: Bidder[typeof field]
-  ) =>
+  const updateBidder = (id: number, field: keyof Bidder, value: Bidder[typeof field]) =>
     setBidders((prev) => prev.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
 
-  const updateAlternate = (
-    bidderId: number,
-    alternateIndex: number,
-    value: string | number
-  ) =>
+  const updateAlternate = (bidderId: number, alternateIndex: number, value: string | number) =>
     setBidders((prev) =>
       prev.map((b) =>
         b.id === bidderId
-          ? {
-              ...b,
-              alternates: b.alternates.map((alt, i) =>
-                i === alternateIndex ? parseFloat(String(value)) || 0 : alt
-              ),
-            }
+          ? { ...b, alternates: b.alternates.map((alt, i) => (i === alternateIndex ? parseFloat(String(value)) || 0 : alt)) }
           : b
       )
     );
 
   const updateAlternate2A = (bidderId: number, value: string | number) =>
-    setBidders((prev) =>
-      prev.map((b) =>
-        b.id === bidderId ? { ...b, alternate2A: parseFloat(String(value)) || 0 } : b
-      )
-    );
+    setBidders((prev) => prev.map((b) => (b.id === bidderId ? { ...b, alternate2A: parseFloat(String(value)) || 0 } : b)));
 
   const updateNumAlternates = (newNum: number) => {
     setNumAlternates(newNum);
-    setBidders((prev) =>
-      prev.map((b) => ({
-        ...b,
-        alternates: Array(newNum)
-          .fill(0)
-          .map((_, i) => (b.alternates[i] != null ? b.alternates[i] : 0)),
-      }))
-    );
+    setBidders((prev) => prev.map((b) => ({ ...b, alternates: Array(newNum).fill(0).map((_, i) => (b.alternates[i] != null ? b.alternates[i] : 0)) })));
     setSelectedAlternates([]);
     setAltLabels((prev) => Array(newNum).fill(0).map((_, i) => prev[i] ?? `Alt ${i + 1}`));
   };
@@ -382,8 +347,7 @@ export default function App() {
   };
 
   // --------- calculations ---------
-  const labelFor = (idx: AltIndex) =>
-    idx === "alt2A" ? alt2ALabel : altLabels[Number(idx)] ?? `Alt ${Number(idx) + 1}`;
+  const labelFor = (idx: AltIndex) => (idx === "alt2A" ? alt2ALabel : altLabels[Number(idx)] ?? `Alt ${Number(idx) + 1}`);
 
   const calcTotal = (bidder: Bidder, altIndices: AltIndex[] = []) =>
     bidder.baseBid +
@@ -397,8 +361,7 @@ export default function App() {
     [numAlternates, has2A]
   );
 
-  const isValidCombo = (combo: AltIndex[]) =>
-    !xorRules.some(([a, b]) => combo.includes(a) && combo.includes(b));
+  const isValidCombo = (combo: AltIndex[]) => !xorRules.some(([a, b]) => combo.includes(a) && combo.includes(b));
 
   const getAllCombinations = (): ComboResult[] => {
     const U = allAlternatesUniverse;
@@ -430,10 +393,7 @@ export default function App() {
     [bidders, selectedAlternates]
   );
 
-  const allCombinations = useMemo(
-    () => getAllCombinations(),
-    [bidders, numAlternates, has2A, xor34, altLabels, alt2ALabel]
-  );
+  const allCombinations = useMemo(() => getAllCombinations(), [bidders, numAlternates, has2A, xor34, altLabels, alt2ALabel]);
 
   // Apply budget cap (filter by winning total)
   const filteredCombinations = useMemo(() => {
@@ -443,90 +403,20 @@ export default function App() {
   }, [allCombinations, budgetCap]);
 
   const contractorWinningCombos = useMemo(
-    () =>
-      selectedContractor
-        ? filteredCombinations.filter((c) => c.winner.name === selectedContractor)
-        : [],
+    () => (selectedContractor ? filteredCombinations.filter((c) => c.winner.name === selectedContractor) : []),
     [filteredCombinations, selectedContractor]
   );
 
-  // Winning percentage per contractor (across ALL valid, filtered combos)
+  // Winning percentage per contractor (across filtered combos)
   const winningStats = useMemo(() => {
     const counts = new Map<string, number>();
     for (const b of bidders) counts.set(b.name, 0);
-    for (const combo of filteredCombinations) {
-      counts.set(combo.winner.name, (counts.get(combo.winner.name) || 0) + 1);
-    }
+    for (const combo of filteredCombinations) counts.set(combo.winner.name, (counts.get(combo.winner.name) || 0) + 1);
     const total = filteredCombinations.length || 1;
     return [...counts.entries()]
       .map(([name, wins]) => ({ name, wins, pct: (wins / total) * 100 }))
       .sort((a, b) => b.pct - a.pct);
   }, [bidders, filteredCombinations]);
-
-  // Map for quick combo lookup by key (for sensitivity pairs)
-  const comboKey = (combo: AltIndex[]) =>
-    combo
-      .map((c) => (c === "alt2A" ? "2A" : String(c)))
-      .sort((a, b) => (a < b ? -1 : a > b ? 1 : 0))
-      .join("|");
-
-  const filteredMap = useMemo(() => {
-    const m = new Map<string, ComboResult>();
-    for (const c of filteredCombinations) m.set(comboKey(c.alternateIndices), c);
-    return m;
-  }, [filteredCombinations]);
-
-  // Alternate Sensitivity: include %, win swings, avg Δ winner total, top beneficiary
-  type AltSense = {
-    key: AltIndex;
-    label: string;
-    includePct: number;
-    swings: number;
-    avgDelta: number; // avg (winner total with alt) - (winner total without alt) across paired scenarios
-    topBeneficiary?: string;
-  };
-
-  const altSensitivity: AltSense[] = useMemo(() => {
-    const U = allAlternatesUniverse;
-    const totalCombos = filteredCombinations.length || 1;
-    const out: AltSense[] = [];
-
-    for (const alt of U) {
-      let includeCount = 0;
-      let pairs = 0;
-      let swings = 0;
-      let deltaSum = 0;
-      const beneficiaryCounts = new Map<string, number>();
-
-      for (const c of filteredCombinations) {
-        if (!c.alternateIndices.includes(alt)) continue;
-        includeCount++;
-        const counterpartIndices = c.alternateIndices.filter((x) => x !== alt);
-        const counterpart = filteredMap.get(comboKey(counterpartIndices));
-        if (!counterpart) continue; // counterpart filtered out (e.g., budget)
-        pairs++;
-        const d = c.winner.total - counterpart.winner.total;
-        deltaSum += d;
-        if (c.winner.name !== counterpart.winner.name) {
-          swings++;
-          beneficiaryCounts.set(c.winner.name, (beneficiaryCounts.get(c.winner.name) || 0) + 1);
-        }
-      }
-
-      const topBeneficiary = [...beneficiaryCounts.entries()].sort((a, b) => b[1] - a[1])[0]?.[0];
-
-      out.push({
-        key: alt,
-        label: labelFor(alt),
-        includePct: (includeCount / totalCombos) * 100,
-        swings,
-        avgDelta: pairs ? deltaSum / pairs : 0,
-        topBeneficiary,
-      });
-    }
-
-    return out.sort((a, b) => b.swings - a.swings || b.includePct - a.includePct);
-  }, [allAlternatesUniverse, filteredCombinations, filteredMap, alt2ALabel, altLabels]);
 
   // Budget Frontier: best (lowest total) scenario for each k = # of alternates selected
   const budgetFrontier = useMemo(() => {
@@ -541,12 +431,7 @@ export default function App() {
 
   // --------- export (analysis CSV) ---------
   const exportToCSV = () => {
-    const headers = [
-      "Base Bid & Alternate Combination",
-      "Winning Contractor",
-      "Total Dollar Amount",
-      "Difference from Next Lowest",
-    ];
+    const headers = ["Base Bid & Alternate Combination", "Winning Contractor", "Total Dollar Amount", "Difference from Next Lowest"];
     const rows = filteredCombinations.map((c) => {
       const winner = c.allBids[0];
       const next = c.allBids[1];
@@ -571,9 +456,7 @@ export default function App() {
               src="/logo.png"
               alt="Company Logo"
               className="h-16 md:h-20 w-auto rounded-md"
-              onError={(e) => {
-                (e.currentTarget as HTMLImageElement).style.display = "none";
-              }}
+              onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = "none"; }}
             />
             <h1 className="text-2xl md:text-3xl font-semibold tracking-tight">Construction BidAnalyzer</h1>
           </div>
@@ -585,18 +468,10 @@ export default function App() {
             >
               <RefreshCw className="w-4 h-4" /> Refresh Data
             </button>
-            <button
-              onClick={exportSnapshot}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
-              title="Save snapshot (.json)"
-            >
+            <button onClick={exportSnapshot} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300" title="Save snapshot (.json)">
               <Save className="w-4 h-4" /> Save
             </button>
-            <button
-              onClick={() => snapshotInputRef.current?.click()}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
-              title="Load snapshot (.json)"
-            >
+            <button onClick={() => snapshotInputRef.current?.click()} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300" title="Load snapshot (.json)">
               <FolderOpen className="w-4 h-4" /> Load
             </button>
             <input ref={snapshotInputRef} type="file" accept="application/json" className="hidden" onChange={importSnapshot} />
@@ -607,25 +482,14 @@ export default function App() {
       <div className="flex-1 max-w-7xl mx-auto p-6 space-y-6 w-full">
         {/* Controls Card */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <p className="text-sm text-stone-600 italic mt-2">
-            <em>Ownership Tool for Comparing All Possible Winning Combinations Instantly!</em>
-          </p>
+          <p className="text-sm text-stone-600 italic mt-2"><em>Ownership Tool for Comparing All Possible Winning Combinations Instantly!</em></p>
 
           <div className="mt-4 flex flex-wrap gap-4 items-center">
             <div className="flex items-center gap-2">
-              <label htmlFor="numAlts" className="text-[15px] font-medium text-stone-800">
-                Number of Alternates:
-              </label>
-              <select
-                id="numAlts"
-                value={numAlternates}
-                onChange={(e) => updateNumAlternates(parseInt(e.target.value))}
-                className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-              >
+              <label htmlFor="numAlts" className="text-[15px] font-medium text-stone-800">Number of Alternates:</label>
+              <select id="numAlts" value={numAlternates} onChange={(e) => updateNumAlternates(parseInt(e.target.value))} className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400">
                 {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </option>
+                  <option key={i + 1} value={i + 1}>{i + 1}</option>
                 ))}
               </select>
             </div>
@@ -650,26 +514,11 @@ export default function App() {
               Alt 3 ⊻ Alt 4 (at most one)
             </label>
 
-            <button
-              onClick={addBidder}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white shadow-sm hover:bg-teal-700 transition-all"
-            >
-              ➕ Add Bidder
-            </button>
-
-            <button
-              onClick={exportToCSV}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white shadow-sm hover:bg-amber-700 transition-all"
-            >
-              💾 Export to CSV
-            </button>
+            <button onClick={addBidder} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white shadow-sm hover:bg-teal-700 transition-all">➕ Add Bidder</button>
+            <button onClick={exportToCSV} className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white shadow-sm hover:bg-amber-700 transition-all">💾 Export to CSV</button>
 
             {/* Template + Import adjacent */}
-            <button
-              onClick={downloadTemplateCSV}
-              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
-              title="Download CSV template"
-            >
+            <button onClick={downloadTemplateCSV} className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300" title="Download CSV template">
               <FileDown className="w-4 h-4" /> Template
             </button>
             <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-700 text-white font-bold shadow-sm hover:bg-gray-800 cursor-pointer">
@@ -680,16 +529,11 @@ export default function App() {
           </div>
         </div>
 
-        {/* Bidder Input Table Card (scrollable + collapsible) */}
+        {/* Data Entry Card (scrollable + collapsible) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-semibold text-stone-800">Data Entry</h2>
-            <button
-              onClick={() => setDataEntryOpen((v) => !v)}
-              className="text-sm text-stone-700 hover:text-stone-900"
-            >
-              {dataEntryOpen ? "Collapse ▾" : "Expand ▸"}
-            </button>
+            <button onClick={() => setDataEntryOpen((v) => !v)} className="text-sm text-stone-700 hover:text-stone-900">{dataEntryOpen ? "Collapse ▾" : "Expand ▸"}</button>
           </div>
 
           {dataEntryOpen && (
@@ -718,39 +562,19 @@ export default function App() {
                   {bidders.map((b) => (
                     <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
                       <td className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="text"
-                          value={b.name}
-                          onChange={(e) => updateBidder(b.id, "name", e.target.value)}
-                          className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
+                        <input type="text" value={b.name} onChange={(e) => updateBidder(b.id, "name", e.target.value)} className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400" />
                       </td>
                       <td className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="number"
-                          value={b.baseBid}
-                          onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)}
-                          className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
+                        <input type="number" value={b.baseBid} onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)} className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400" />
                       </td>
                       {Array.from({ length: numAlternates }, (_, idx) => (
                         <td key={idx} className="px-4 py-2 border-b border-stone-100">
-                          <input
-                            type="number"
-                            value={b.alternates[idx] || 0}
-                            onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
-                            className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                          />
+                          <input type="number" value={b.alternates[idx] || 0} onChange={(e) => updateAlternate(b.id, idx, e.target.value)} className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400" />
                         </td>
                       ))}
                       {has2A && (
                         <td className="px-4 py-2 border-b border-stone-100">
-                          <input
-                            type="number"
-                            value={b.alternate2A || 0}
-                            onChange={(e) => updateAlternate2A(b.id, e.target.value)}
-                            className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                          />
+                          <input type="number" value={b.alternate2A || 0} onChange={(e) => updateAlternate2A(b.id, e.target.value)} className="w-full px-3 py-2 text-[15px] rounded-xl border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400" />
                         </td>
                       )}
                       <td className="px-4 py-2 border-b border-stone-100 text-center">
@@ -789,13 +613,7 @@ export default function App() {
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-stone-800">Current Selection</h2>
-            <button
-              onClick={() => setSelectedAlternates([])}
-              className="text-sm text-stone-700 hover:text-stone-900"
-              title="Clear all selected alternates"
-            >
-              Clear all
-            </button>
+            <button onClick={() => setSelectedAlternates([])} className="text-sm text-stone-700 hover:text-stone-900" title="Clear all selected alternates">Clear all</button>
           </div>
 
           <div className="mb-4">
@@ -803,32 +621,17 @@ export default function App() {
             <div className="flex flex-wrap gap-3">
               {Array.from({ length: numAlternates }, (_, idx) => {
                 const checked = selectedAlternates.includes(idx);
-                const disabled34 =
-                  xor34 &&
-                  numAlternates >= 4 &&
-                  ((idx === 2 && selectedAlternates.includes(3)) || (idx === 3 && selectedAlternates.includes(2)));
+                const disabled34 = xor34 && numAlternates >= 4 && ((idx === 2 && selectedAlternates.includes(3)) || (idx === 3 && selectedAlternates.includes(2)));
                 return (
                   <label key={idx} className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg ${disabled34 ? "opacity-60" : ""}`}>
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleAlternate(idx)}
-                      className="rounded"
-                      disabled={disabled34 && !checked}
-                    />
+                    <input type="checkbox" checked={checked} onChange={() => toggleAlternate(idx)} className="rounded" disabled={disabled34 && !checked} />
                     <span className="text-stone-800">{altLabels[idx] ?? `Alt ${idx + 1}`}</span>
                   </label>
                 );
               })}
               {has2A && (
                 <label className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg ${selectedAlternates.includes(1) ? "opacity-60" : ""}`}>
-                  <input
-                    type="checkbox"
-                    checked={selectedAlternates.includes("alt2A")}
-                    onChange={() => toggleAlternate("alt2A")}
-                    className="rounded"
-                    disabled={selectedAlternates.includes(1) && !selectedAlternates.includes("alt2A")}
-                  />
+                  <input type="checkbox" checked={selectedAlternates.includes("alt2A")} onChange={() => toggleAlternate("alt2A")} className="rounded" disabled={selectedAlternates.includes(1) && !selectedAlternates.includes("alt2A")} />
                   <span className="text-stone-800">{alt2ALabel}</span>
                 </label>
               )}
@@ -837,7 +640,7 @@ export default function App() {
           </div>
 
           <div className="space-y-2">
-            {currentTotals.map((b, i) => (
+            {currentTotals.map((b: any, i) => (
               <div key={b.id} className={`p-3 rounded-xl border-l-4 ${i === 0 ? "bg-emerald-50 border-emerald-500" : "bg-stone-50 border-stone-300"}`}>
                 <div className="flex justify-between items-center">
                   <span className="font-medium text-stone-800">{i === 0 && <span className="text-emerald-600 mr-2">🏆</span>}{b.name}</span>
@@ -854,12 +657,7 @@ export default function App() {
 
           <div className="mb-4">
             <label htmlFor="contractorSel" className="text-[15px] font-medium text-stone-800 mr-3">Select Contractor:</label>
-            <select
-              id="contractorSel"
-              value={selectedContractor}
-              onChange={(e) => setSelectedContractor(e.target.value)}
-              className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400 min-w-[12rem]"
-            >
+            <select id="contractorSel" value={selectedContractor} onChange={(e) => setSelectedContractor(e.target.value)} className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400 min-w-[12rem]">
               <option value="">-- Choose a contractor --</option>
               {bidders.map((b) => (
                 <option key={b.id} value={b.name}>{b.name}</option>
@@ -895,12 +693,7 @@ export default function App() {
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-4">
             <h2 className="text-xl font-semibold text-stone-800">Top Combinations</h2>
-            <button
-              onClick={() => setTopCombosOpen((v) => !v)}
-              className="text-sm text-stone-700 hover:text-stone-900"
-            >
-              {topCombosOpen ? "Collapse ▾" : "Expand ▸"}
-            </button>
+            <button onClick={() => setTopCombosOpen((v) => !v)} className="text-sm text-stone-700 hover:text-stone-900">{topCombosOpen ? "Collapse ▾" : "Expand ▸"}</button>
           </div>
 
           {topCombosOpen && (
@@ -934,71 +727,38 @@ export default function App() {
           )}
         </div>
 
-        {/* NEW: Alternate Sensitivity Card */}
+        {/* NEW: Budget Frontier Card (collapsible via <details>) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-2">Alternate Sensitivity</h2>
-          <p className="text-xs text-stone-500 mb-3">How impactful each alternate is across valid scenarios (after budget), based on inclusion rate, winner swings, and the average effect on the winning total when toggled on/off.</p>
-          {altSensitivity.length === 0 ? (
-            <div className="text-stone-700 italic">No scenarios available.</div>
-          ) : (
-            <div className="overflow-auto">
-              <table className="w-full min-w-[720px] text-sm">
-                <thead className="bg-stone-50 text-stone-700">
-                  <tr>
-                    <th className="px-3 py-2 text-left">Alternate</th>
-                    <th className="px-3 py-2 text-right">Include %</th>
-                    <th className="px-3 py-2 text-right">Win Swings</th>
-                    <th className="px-3 py-2 text-right">Avg Δ Winner Total</th>
-                    <th className="px-3 py-2 text-left">Top Beneficiary</th>
-                  </tr>
-                </thead>
-                <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
-                  {altSensitivity.map((row, i) => (
-                    <tr key={i}>
-                      <td className="px-3 py-2">{row.label}</td>
-                      <td className="px-3 py-2 text-right">{row.includePct.toFixed(1)}%</td>
-                      <td className="px-3 py-2 text-right">{row.swings}</td>
-                      <td className="px-3 py-2 text-right">{fmt$(row.avgDelta)}</td>
-                      <td className="px-3 py-2">{row.topBeneficiary ?? "—"}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-          )}
-        </div>
+          <details open>
+            <summary className="flex items-center justify-between mb-2 cursor-pointer list-none">
+              <h2 className="text-xl font-semibold text-stone-800">Budget Frontier</h2>
+              <span className="text-sm text-stone-700 hover:text-stone-900 select-none">Toggle ▾</span>
+            </summary>
 
-        {/* NEW: Budget Frontier Card */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-2">Budget Frontier</h2>
-          <p className="text-xs text-stone-500 mb-3">Best (lowest total) winning scenario for each number of alternates selected. Helps compare scope size vs. cost.</p>
-          {budgetFrontier.length === 0 ? (
-            <div className="text-stone-700 italic">No scenarios available.</div>
-          ) : (
-            <div className="space-y-2">
-              {budgetFrontier.map(({ k, combo }) => (
-                <div key={k} className="p-3 rounded-xl border border-stone-200 bg-stone-50">
-                  <div className="flex flex-wrap items-center justify-between gap-2">
-                    <div className="text-stone-800 font-medium">k = {k}</div>
-                    <div className="text-stone-700">{combo.alternates}</div>
-                    <div className="text-stone-900 font-semibold">{combo.winner.name} · {fmt$(combo.winner.total)}</div>
+            <p className="text-xs text-stone-500 mb-3">Best (lowest total) winning scenario for each number of alternates selected. Helps compare scope size vs. cost.</p>
+            {budgetFrontier.length === 0 ? (
+              <div className="text-stone-700 italic">No scenarios available.</div>
+            ) : (
+              <div className="space-y-2">
+                {budgetFrontier.map(({ k, combo }) => (
+                  <div key={k} className="p-3 rounded-xl border border-stone-200 bg-stone-50">
+                    <div className="flex flex-wrap items-center justify-between gap-2">
+                      <div className="text-stone-800 font-medium">k = {k}</div>
+                      <div className="text-stone-700">{combo.alternates}</div>
+                      <div className="text-stone-900 font-semibold">{combo.winner.name} · {fmt$(combo.winner.total)}</div>
+                    </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                ))}
+              </div>
+            )}
+          </details>
         </div>
 
         {/* Alternate Labels & Budget Card — whole card collapsible */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-semibold text-stone-800">Alternate Labels & Budget</h2>
-            <button
-              onClick={() => setLabelsOpen((v) => !v)}
-              className="text-sm text-stone-700 hover:text-stone-900"
-            >
-              {labelsOpen ? "Collapse ▾" : "Expand ▸"}
-            </button>
+            <button onClick={() => setLabelsOpen((v) => !v)} className="text-sm text-stone-700 hover:text-stone-900">{labelsOpen ? "Collapse ▾" : "Expand ▸"}</button>
           </div>
 
           {labelsOpen && (
@@ -1011,13 +771,7 @@ export default function App() {
                       key={idx}
                       type="text"
                       value={altLabels[idx] ?? `Alt ${idx + 1}`}
-                      onChange={(e) =>
-                        setAltLabels((prev) => {
-                          const next = [...prev];
-                          next[idx] = e.target.value;
-                          return next;
-                        })
-                      }
+                      onChange={(e) => setAltLabels((prev) => { const next = [...prev]; next[idx] = e.target.value; return next; })}
                       className="px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
                       placeholder={`Alt ${idx + 1}`}
                     />
@@ -1038,12 +792,7 @@ export default function App() {
               <div>
                 <div className="flex items-center justify-between mb-2">
                   <div className="text-sm font-medium text-stone-700">Advanced</div>
-                  <button
-                    onClick={() => setIsAdvancedOpen((v) => !v)}
-                    className="text-xs text-stone-700 hover:text-stone-900"
-                  >
-                    {isAdvancedOpen ? "Hide ▾" : "Show ▸"}
-                  </button>
+                  <button onClick={() => setIsAdvancedOpen((v) => !v)} className="text-xs text-stone-700 hover:text-stone-900">{isAdvancedOpen ? "Hide ▾" : "Show ▸"}</button>
                 </div>
                 {isAdvancedOpen && (
                   <div className="space-y-3">
@@ -1052,14 +801,11 @@ export default function App() {
                       <input
                         type="number"
                         value={budgetCap}
-                        onChange={(e) => {
-                          const v = e.target.value;
-                          setBudgetCap(v === "" ? "" : parseFloat(v) || 0);
-                        }}
+                        onChange={(e) => { const v = e.target.value; setBudgetCap(v === "" ? "" : parseFloat(v) || 0); }}
                         className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
                         placeholder="Leave blank for no cap"
                       />
-                      <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, Sensitivity, Frontier, and contractor scenarios.</div>
+                      <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, Frontier, and contractor scenarios.</div>
                     </div>
 
                     <div className="flex items-center gap-3">
