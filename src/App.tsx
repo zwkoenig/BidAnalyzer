@@ -76,6 +76,7 @@ export default function App() {
   const [labelsOpen, setLabelsOpen] = useState<boolean>(true); // whole Labels & Budget card collapse
   const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false); // inner advanced section
   const [dataEntryOpen, setDataEntryOpen] = useState<boolean>(true); // collapse Data Entry card
+  const [topCombosOpen, setTopCombosOpen] = useState<boolean>(true); // collapse Top Combinations
 
   // file input refs
   const snapshotInputRef = useRef<HTMLInputElement>(null);
@@ -168,7 +169,6 @@ export default function App() {
         setBudgetCap(typeof obj.budgetCap === "number" ? obj.budgetCap : INITIAL_BUDGET_CAP);
         setTopN(typeof obj.topN === "number" ? obj.topN : INITIAL_TOP_N);
         if (Array.isArray(obj.bidders)) {
-          // coerce bidder shapes
           const coerced: Bidder[] = obj.bidders.map((b: any, idx: number) => ({
             id: typeof b.id === "number" ? b.id : idx + 1,
             name: String(b.name ?? `Contractor ${idx + 1}`),
@@ -194,7 +194,7 @@ export default function App() {
     const headers: string[] = ["Contractor", "Base Bid", ...Array.from({ length: numAlternates }, (_, i) => `Alt ${i + 1}`)];
     if (has2A) headers.push("Alt 2A");
     const blankRow = new Array(headers.length).fill("");
-    const rows = [headers, blankRow, blankRow, blankRow]; // 3 blank rows
+    const rows = [headers, blankRow, blankRow, blankRow];
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
@@ -711,7 +711,16 @@ export default function App() {
 
         {/* Current Selection Card */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-4">Current Selection</h2>
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-stone-800">Current Selection</h2>
+            <button
+              onClick={() => setSelectedAlternates([])}
+              className="text-sm text-stone-700 hover:text-stone-900"
+              title="Clear all selected alternates"
+            >
+              Clear all
+            </button>
+          </div>
 
           <div className="mb-4">
             <p className="text-[15px] font-medium text-stone-800 mb-2">Select Alternates to Include:</p>
@@ -763,36 +772,6 @@ export default function App() {
           </div>
         </div>
 
-        {/* Top Combinations Card */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-4">Top Combinations</h2>
-          {filteredCombinations.length === 0 ? (
-            <div className="text-stone-700 italic">No combinations found. Adjust budget or data.</div>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredCombinations.slice(0, topN).map((c, i) => (
-                <div key={i} className="border border-stone-200 rounded-xl p-3">
-                  <div className="font-medium text-stone-700 mb-1">{c.alternates}</div>
-                  <div className="bg-emerald-50 p-2 rounded border-l-4 border-emerald-500">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-emerald-800"><span className="mr-1">🏆</span>{c.winner.name}</span>
-                      <span className="font-bold text-emerald-800">{fmt$(c.winner.total)}</span>
-                    </div>
-                  </div>
-                  {c.allBids[1] && (
-                    <div className="bg-stone-50 p-2 rounded mt-1">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-stone-700">Next: {c.allBids[1].name}</span>
-                        <span className="text-stone-700">{fmt$(c.allBids[1].total)} (+{fmt$(c.allBids[1].total - c.winner.total)})</span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
         {/* Contractor-Specific Card (only show lowest 2 bids per scenario) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <h2 className="text-xl font-semibold text-stone-800 mb-4">Contractor-Specific Winning Combinations (Top 2 bids per scenario)</h2>
@@ -833,6 +812,49 @@ export default function App() {
                 ))
               )}
             </div>
+          )}
+        </div>
+
+        {/* Top Combinations Card (collapsible) */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <div className="flex items-center justify-between mb-4">
+            <h2 className="text-xl font-semibold text-stone-800">Top Combinations</h2>
+            <button
+              onClick={() => setTopCombosOpen((v) => !v)}
+              className="text-sm text-stone-700 hover:text-stone-900"
+            >
+              {topCombosOpen ? "Collapse ▾" : "Expand ▸"}
+            </button>
+          </div>
+
+          {topCombosOpen && (
+            <>
+              {filteredCombinations.length === 0 ? (
+                <div className="text-stone-700 italic">No combinations found. Adjust budget or data.</div>
+              ) : (
+                <div className="space-y-3 max-h-96 overflow-y-auto">
+                  {filteredCombinations.slice(0, topN).map((c, i) => (
+                    <div key={i} className="border border-stone-200 rounded-xl p-3">
+                      <div className="font-medium text-stone-700 mb-1">{c.alternates}</div>
+                      <div className="bg-emerald-50 p-2 rounded border-l-4 border-emerald-500">
+                        <div className="flex justify-between items-center">
+                          <span className="font-medium text-emerald-800"><span className="mr-1">🏆</span>{c.winner.name}</span>
+                          <span className="font-bold text-emerald-800">{fmt$(c.winner.total)}</span>
+                        </div>
+                      </div>
+                      {c.allBids[1] && (
+                        <div className="bg-stone-50 p-2 rounded mt-1">
+                          <div className="flex justify-between items-center text-sm">
+                            <span className="text-stone-700">Next: {c.allBids[1].name}</span>
+                            <span className="text-stone-700">{fmt$(c.allBids[1].total)} (+{fmt$(c.allBids[1].total - c.winner.total)})</span>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                </div>
+              )}
+            </>
           )}
         </div>
 
