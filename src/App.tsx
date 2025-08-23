@@ -49,27 +49,9 @@ const INITIAL_ALT2A_LABEL = "Alt 2A";
 const INITIAL_BUDGET_CAP: number | "" = "";
 const INITIAL_TOP_N = 10;
 const INITIAL_BIDDERS: Bidder[] = [
-  {
-    id: 1,
-    name: "Contractor A",
-    baseBid: 100000,
-    alternates: [5000, 3000],
-    alternate2A: 4000,
-  },
-  {
-    id: 2,
-    name: "Contractor B",
-    baseBid: 105000,
-    alternates: [4500, 2500],
-    alternate2A: 3500,
-  },
-  {
-    id: 3,
-    name: "Contractor C",
-    baseBid: 98000,
-    alternates: [6000, 3500],
-    alternate2A: 4200,
-  },
+  { id: 1, name: "Contractor A", baseBid: 100000, alternates: [5000, 3000], alternate2A: 4000 },
+  { id: 2, name: "Contractor B", baseBid: 105000, alternates: [4500, 2500], alternate2A: 3500 },
+  { id: 3, name: "Contractor C", baseBid: 98000, alternates: [6000, 3500], alternate2A: 4200 },
 ];
 
 export default function App() {
@@ -525,7 +507,7 @@ export default function App() {
           <p className="text-xs text-stone-500 mt-2">Based on all valid combinations after applying your budget cap (if any).</p>
         </div>
 
-        {/* Current Selection Card (now after Winning %) */}
+        {/* Current Selection Card */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <h2 className="text-xl font-semibold text-stone-800 mb-4">Current Selection</h2>
 
@@ -652,7 +634,79 @@ export default function App() {
           )}
         </div>
 
-        {/* Alternate Labels & Budget Card (moved to bottom) */}
+        {/* Bidder Input Table Card (moved near bottom, above Labels & Budget) */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
+          <div className="overflow-x-auto">
+            <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
+              <thead className="bg-stone-50 sticky top-0 z-10">
+                <tr className="text-left text-stone-700">
+                  <th className="px-4 py-2 border-b border-stone-200">Contractor</th>
+                  <th className="px-4 py-2 border-b border-stone-200">Base Bid ($)</th>
+                  {Array.from({ length: numAlternates }, (_, idx) => (
+                    <th key={idx} className="px-4 py-2 border-b border-stone-200">
+                      {altLabels[idx] ?? `Alt ${idx + 1}`}
+                      <div className="text-xs text-stone-500 italic">($)</div>
+                    </th>
+                  ))}
+                  {has2A && (
+                    <th className="px-4 py-2 border-b border-stone-200">
+                      {alt2ALabel}
+                      <div className="text-xs text-stone-500 italic">($)</div>
+                    </th>
+                  )}
+                  <th className="px-4 py-2 border-b border-stone-200">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
+                {bidders.map((b) => (
+                  <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
+                    <td className="px-4 py-2 border-b border-stone-100">
+                      <input
+                        type="text"
+                        value={b.name}
+                        onChange={(e) => updateBidder(b.id, "name", e.target.value)}
+                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      />
+                    </td>
+                    <td className="px-4 py-2 border-b border-stone-100">
+                      <input
+                        type="number"
+                        value={b.baseBid}
+                        onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      />
+                    </td>
+                    {Array.from({ length: numAlternates }, (_, idx) => (
+                      <td key={idx} className="px-4 py-2 border-b border-stone-100">
+                        <input
+                          type="number"
+                          value={b.alternates[idx] || 0}
+                          onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
+                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                        />
+                      </td>
+                    ))}
+                    {has2A && (
+                      <td className="px-4 py-2 border-b border-stone-100">
+                        <input
+                          type="number"
+                          value={b.alternate2A || 0}
+                          onChange={(e) => updateAlternate2A(b.id, e.target.value)}
+                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                        />
+                      </td>
+                    )}
+                    <td className="px-4 py-2 border-b border-stone-100 text-center">
+                      <button onClick={() => removeBidder(b.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Alternate Labels & Budget Card (at very bottom) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <h2 className="text-xl font-semibold text-stone-800 mb-4">Alternate Labels & Budget</h2>
 
