@@ -493,7 +493,7 @@ export default function App() {
             <img
               src="/logo.png"
               alt="Company Logo"
-              className="h-16 md:h-20 w-auto rounded-md"
+              className="h-16 w-auto rounded-md"
               onError={(e) => {
                 (e.currentTarget as HTMLImageElement).style.display = "none";
               }}
