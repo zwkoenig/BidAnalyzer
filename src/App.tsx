@@ -42,7 +42,7 @@ const STORAGE_KEY = "bidanalyzer_state_v1";
 
 // ----- Defaults for Refresh -----
 const INITIAL_NUM_ALTERNATES = 2;
-const INITIAL_HAS2A = false;
+const INITIAL_HAS2A = false; // default unchecked per request
 const INITIAL_XOR34 = false;
 const INITIAL_ALT_LABELS = ["Alt 1", "Alt 2"];
 const INITIAL_ALT2A_LABEL = "Alt 2A";
@@ -57,8 +57,8 @@ const INITIAL_BIDDERS: Bidder[] = [
 export default function App() {
   // Config / toggles
   const [numAlternates, setNumAlternates] = useState<number>(INITIAL_NUM_ALTERNATES);
-  const [has2A, setHas2A] = useState<boolean>(INITIAL_HAS2A); // default: unchecked
-  const [xor34, setXor34] = useState<boolean>(INITIAL_XOR34); // optional Alt3 vs Alt4
+  const [has2A, setHas2A] = useState<boolean>(INITIAL_HAS2A);
+  const [xor34, setXor34] = useState<boolean>(INITIAL_XOR34); // Alt3 vs Alt4
 
   // Labels & controls
   const [altLabels, setAltLabels] = useState<string[]>([...INITIAL_ALT_LABELS]);
@@ -72,7 +72,8 @@ export default function App() {
   // UI state
   const [selectedAlternates, setSelectedAlternates] = useState<AltIndex[]>([]);
   const [selectedContractor, setSelectedContractor] = useState<string>("");
-  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+  const [labelsOpen, setLabelsOpen] = useState<boolean>(true); // whole Labels & Budget card collapse
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false); // inner advanced section
 
   // file input refs
   const snapshotInputRef = useRef<HTMLInputElement>(null);
@@ -161,7 +162,7 @@ export default function App() {
           const next = Array.from({ length: n }, (_, i) => obj.altLabels[i] ?? `Alt ${i + 1}`);
           setAltLabels(next);
         }
-        setAlt2ALabel(typeof obj.alt2ALabel === "string" ? obj.alt2ALabel : INITIAL_ALT2ALABEL);
+        setAlt2ALabel(typeof obj.alt2ALabel === "string" ? obj.alt2ALabel : INITIAL_ALT2A_LABEL);
         setBudgetCap(typeof obj.budgetCap === "number" ? obj.budgetCap : INITIAL_BUDGET_CAP);
         setTopN(typeof obj.topN === "number" ? obj.topN : INITIAL_TOP_N);
         if (Array.isArray(obj.bidders)) {
@@ -546,6 +547,21 @@ export default function App() {
               Include Alt 2A (mutually exclusive with Alt 2)
             </label>
 
+            {/* Alt 3 vs Alt 4 back to top */}
+            <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
+              <input
+                type="checkbox"
+                className="mr-1"
+                checked={xor34}
+                onChange={() => {
+                  setXor34((v) => !v);
+                  setSelectedAlternates((prev) => enforceSelectionXOR(prev, [[2, 3]]));
+                }}
+                disabled={numAlternates < 4}
+              />
+              Alt 3 ⊻ Alt 4 (at most one)
+            </label>
+
             <button
               onClick={addBidder}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white shadow-sm hover:bg-teal-700 transition-all"
@@ -560,12 +576,7 @@ export default function App() {
               💾 Export to CSV
             </button>
 
-            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-700 text-white font-bold shadow-sm hover:bg-gray-800 cursor-pointer">
-              <Upload className="w-4 h-4 text-white" />
-              <span className="text-sm">Import Excel/CSV</span>
-              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
-            </label>
-
+            {/* Template + Import adjacent */}
             <button
               onClick={downloadTemplateCSV}
               className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
@@ -573,10 +584,87 @@ export default function App() {
             >
               <FileDown className="w-4 h-4" /> Template
             </button>
+            <label className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-gray-700 text-white font-bold shadow-sm hover:bg-gray-800 cursor-pointer">
+              <Upload className="w-4 h-4 text-white" />
+              <span className="text-sm">Import Excel/CSV</span>
+              <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
+            </label>
           </div>
         </div>
 
-        {/* Winning Percentages Card (moved before Current Selection) */}
+        {/* Bidder Input Table Card (moved just below Controls) */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
+          <div className="overflow-x-auto">
+            <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
+              <thead className="bg-stone-50 sticky top-0 z-10">
+                <tr className="text-left text-stone-700">
+                  <th className="px-4 py-2 border-b border-stone-200">Contractor</th>
+                  <th className="px-4 py-2 border-b border-stone-200">Base Bid ($)</th>
+                  {Array.from({ length: numAlternates }, (_, idx) => (
+                    <th key={idx} className="px-4 py-2 border-b border-stone-200">
+                      {altLabels[idx] ?? `Alt ${idx + 1}`}
+                      <div className="text-xs text-stone-500 italic">($)</div>
+                    </th>
+                  ))}
+                  {has2A && (
+                    <th className="px-4 py-2 border-b border-stone-200">
+                      {alt2ALabel}
+                      <div className="text-xs text-stone-500 italic">($)</div>
+                    </th>
+                  )}
+                  <th className="px-4 py-2 border-b border-stone-200">Actions</th>
+                </tr>
+              </thead>
+              <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
+                {bidders.map((b) => (
+                  <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
+                    <td className="px-4 py-2 border-b border-stone-100">
+                      <input
+                        type="text"
+                        value={b.name}
+                        onChange={(e) => updateBidder(b.id, "name", e.target.value)}
+                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      />
+                    </td>
+                    <td className="px-4 py-2 border-b border-stone-100">
+                      <input
+                        type="number"
+                        value={b.baseBid}
+                        onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)}
+                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      />
+                    </td>
+                    {Array.from({ length: numAlternates }, (_, idx) => (
+                      <td key={idx} className="px-4 py-2 border-b border-stone-100">
+                        <input
+                          type="number"
+                          value={b.alternates[idx] || 0}
+                          onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
+                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                        />
+                      </td>
+                    ))}
+                    {has2A && (
+                      <td className="px-4 py-2 border-b border-stone-100">
+                        <input
+                          type="number"
+                          value={b.alternate2A || 0}
+                          onChange={(e) => updateAlternate2A(b.id, e.target.value)}
+                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                        />
+                      </td>
+                    )}
+                    <td className="px-4 py-2 border-b border-stone-100 text-center">
+                      <button onClick={() => removeBidder(b.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+
+        {/* Winning Percentages Card */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <h2 className="text-xl font-semibold text-stone-800 mb-3">Winning Percentage by Contractor</h2>
           {winningStats.length === 0 ? (
@@ -724,170 +812,95 @@ export default function App() {
           )}
         </div>
 
-        {/* Bidder Input Table Card (near bottom, above Labels & Budget) */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
-          <div className="overflow-x-auto">
-            <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
-              <thead className="bg-stone-50 sticky top-0 z-10">
-                <tr className="text-left text-stone-700">
-                  <th className="px-4 py-2 border-b border-stone-200">Contractor</th>
-                  <th className="px-4 py-2 border-b border-stone-200">Base Bid ($)</th>
-                  {Array.from({ length: numAlternates }, (_, idx) => (
-                    <th key={idx} className="px-4 py-2 border-b border-stone-200">
-                      {altLabels[idx] ?? `Alt ${idx + 1}`}
-                      <div className="text-xs text-stone-500 italic">($)</div>
-                    </th>
-                  ))}
-                  {has2A && (
-                    <th className="px-4 py-2 border-b border-stone-200">
-                      {alt2ALabel}
-                      <div className="text-xs text-stone-500 italic">($)</div>
-                    </th>
-                  )}
-                  <th className="px-4 py-2 border-b border-stone-200">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
-                {bidders.map((b) => (
-                  <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
-                    <td className="px-4 py-2 border-b border-stone-100">
-                      <input
-                        type="text"
-                        value={b.name}
-                        onChange={(e) => updateBidder(b.id, "name", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      />
-                    </td>
-                    <td className="px-4 py-2 border-b border-stone-100">
-                      <input
-                        type="number"
-                        value={b.baseBid}
-                        onChange={(e) => updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)}
-                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      />
-                    </td>
-                    {Array.from({ length: numAlternates }, (_, idx) => (
-                      <td key={idx} className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="number"
-                          value={b.alternates[idx] || 0}
-                          onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
-                      </td>
-                    ))}
-                    {has2A && (
-                      <td className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="number"
-                          value={b.alternate2A || 0}
-                          onChange={(e) => updateAlternate2A(b.id, e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
-                      </td>
-                    )}
-                    <td className="px-4 py-2 border-b border-stone-100 text-center">
-                      <button onClick={() => removeBidder(b.id)} className="text-red-500 hover:text-red-700 text-lg">🗑️</button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Alternate Labels & Budget Card (at very bottom) */}
+        {/* Alternate Labels & Budget Card — whole card collapsible */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-semibold text-stone-800">Alternate Labels & Budget</h2>
             <button
-              onClick={() => setIsAdvancedOpen((v) => !v)}
+              onClick={() => setLabelsOpen((v) => !v)}
               className="text-sm text-stone-700 hover:text-stone-900"
             >
-              Advanced {isAdvancedOpen ? "▾" : "▸"}
+              {labelsOpen ? "Collapse ▾" : "Expand ▸"}
             </button>
           </div>
 
-          <div className="grid sm:grid-cols-2 gap-4">
-            <div>
-              <div className="text-sm font-medium text-stone-700 mb-2">Alternate Labels</div>
-              <div className="grid grid-cols-2 gap-2">
-                {Array.from({ length: numAlternates }, (_, idx) => (
-                  <input
-                    key={idx}
-                    type="text"
-                    value={altLabels[idx] ?? `Alt ${idx + 1}`}
-                    onChange={(e) =>
-                      setAltLabels((prev) => {
-                        const next = [...prev];
-                        next[idx] = e.target.value;
-                        return next;
-                      })
-                    }
-                    className="px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                    placeholder={`Alt ${idx + 1}`}
-                  />
-                ))}
-                {has2A && (
-                  <input
-                    type="text"
-                    value={alt2ALabel}
-                    onChange={(e) => setAlt2ALabel(e.target.value)}
-                    className="px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400 col-span-2"
-                    placeholder="Alt 2A"
-                  />
+          {labelsOpen && (
+            <div className="grid sm:grid-cols-2 gap-4">
+              <div>
+                <div className="text-sm font-medium text-stone-700 mb-2">Alternate Labels</div>
+                <div className="grid grid-cols-2 gap-2">
+                  {Array.from({ length: numAlternates }, (_, idx) => (
+                    <input
+                      key={idx}
+                      type="text"
+                      value={altLabels[idx] ?? `Alt ${idx + 1}`}
+                      onChange={(e) =>
+                        setAltLabels((prev) => {
+                          const next = [...prev];
+                          next[idx] = e.target.value;
+                          return next;
+                        })
+                      }
+                      className="px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      placeholder={`Alt ${idx + 1}`}
+                    />
+                  ))}
+                  {has2A && (
+                    <input
+                      type="text"
+                      value={alt2ALabel}
+                      onChange={(e) => setAlt2ALabel(e.target.value)}
+                      className="px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400 col-span-2"
+                      placeholder="Alt 2A"
+                    />
+                  )}
+                </div>
+              </div>
+
+              {/* Advanced collapsible inside the card (Budget + Top N) */}
+              <div>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="text-sm font-medium text-stone-700">Advanced</div>
+                  <button
+                    onClick={() => setIsAdvancedOpen((v) => !v)}
+                    className="text-xs text-stone-700 hover:text-stone-900"
+                  >
+                    {isAdvancedOpen ? "Hide ▾" : "Show ▸"}
+                  </button>
+                </div>
+                {isAdvancedOpen && (
+                  <div className="space-y-3">
+                    <div>
+                      <div className="text-sm font-medium text-stone-700 mb-2">Owner Budget Cap ($)</div>
+                      <input
+                        type="number"
+                        value={budgetCap}
+                        onChange={(e) => {
+                          const v = e.target.value;
+                          setBudgetCap(v === "" ? "" : parseFloat(v) || 0);
+                        }}
+                        className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                        placeholder="Leave blank for no cap"
+                      />
+                      <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, and contractor scenarios.</div>
+                    </div>
+
+                    <div className="flex items-center gap-3">
+                      <label className="text-sm font-medium text-stone-700">Show Top N combinations:</label>
+                      <input
+                        type="number"
+                        min={1}
+                        max={100}
+                        value={topN}
+                        onChange={(e) => setTopN(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                        className="w-24 px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      />
+                    </div>
+                  </div>
                 )}
               </div>
             </div>
-
-            {/* Advanced collapsible */}
-            <div>
-              {isAdvancedOpen && (
-                <div className="space-y-3">
-                  <div>
-                    <div className="text-sm font-medium text-stone-700 mb-2">Owner Budget Cap ($)</div>
-                    <input
-                      type="number"
-                      value={budgetCap}
-                      onChange={(e) => {
-                        const v = e.target.value;
-                        setBudgetCap(v === "" ? "" : parseFloat(v) || 0);
-                      }}
-                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      placeholder="Leave blank for no cap"
-                    />
-                    <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, and contractor scenarios.</div>
-                  </div>
-
-                  <div className="flex items-center gap-3">
-                    <label className="text-sm font-medium text-stone-700">Show Top N combinations:</label>
-                    <input
-                      type="number"
-                      min={1}
-                      max={100}
-                      value={topN}
-                      onChange={(e) => setTopN(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                      className="w-24 px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                    />
-                  </div>
-
-                  <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
-                    <input
-                      type="checkbox"
-                      className="mr-1"
-                      checked={xor34}
-                      onChange={() => {
-                        setXor34((v) => !v);
-                        setSelectedAlternates((prev) => enforceSelectionXOR(prev, [[2, 3]]));
-                      }}
-                      disabled={numAlternates < 4}
-                    />
-                    Alt 3 ⊻ Alt 4 (at most one)
-                  </label>
-                </div>
-              )}
-            </div>
-          </div>
+          )}
         </div>
       </div>
 
