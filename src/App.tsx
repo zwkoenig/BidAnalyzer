@@ -725,12 +725,6 @@ export default function App() {
             </label>
 
             <button
-              onClick={addBidder}
-              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white shadow-sm hover:bg-teal-700 transition-all"
-            >
-              ➕ Add Bidder
-            </button>
-            <button
               onClick={exportToCSV}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white shadow-sm hover:bg-amber-700 transition-all"
             >
@@ -762,12 +756,20 @@ export default function App() {
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
           <div className="flex items-center justify-between mb-2">
             <h2 className="text-xl font-semibold text-stone-800">Data Entry</h2>
-            <button
-              onClick={() => setDataEntryOpen((v) => !v)}
-              className="text-sm text-stone-700 hover:text-stone-900"
-            >
-              {dataEntryOpen ? "Collapse ▾" : "Expand ▸"}
-            </button>
+            <div className="flex items-center gap-2">
+              <button
+                onClick={addBidder}
+                className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white shadow-sm hover:bg-teal-700 transition-all"
+              >
+                ➕ Add Bidder
+              </button>
+              <button
+                onClick={() => setDataEntryOpen((v) => !v)}
+                className="text-sm text-stone-700 hover:text-stone-900"
+              >
+                {dataEntryOpen ? "Collapse ▾" : "Expand ▸"}
+              </button>
+            </div>
           </div>
 
           {dataEntryOpen && (
