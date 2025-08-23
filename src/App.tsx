@@ -1,8 +1,8 @@
 // App.tsx — Bid Analyzer (Vite + React + TypeScript + Tailwind)
 // Libraries used: react, react-dom, lucide-react, xlsx
 
-import React, { useEffect, useMemo, useState } from "react";
-import { Upload, RefreshCw } from "lucide-react";
+import React, { useEffect, useMemo, useRef, useState } from "react";
+import { Upload, RefreshCw, Save, FolderOpen, FileDown } from "lucide-react";
 import * as XLSX from "xlsx";
 
 type AltIndex = number | "alt2A";
@@ -72,6 +72,10 @@ export default function App() {
   // UI state
   const [selectedAlternates, setSelectedAlternates] = useState<AltIndex[]>([]);
   const [selectedContractor, setSelectedContractor] = useState<string>("");
+  const [isAdvancedOpen, setIsAdvancedOpen] = useState<boolean>(false);
+
+  // file input refs
+  const snapshotInputRef = useRef<HTMLInputElement>(null);
 
   // ---------- load/save (localStorage) ----------
   useEffect(() => {
@@ -120,6 +124,80 @@ export default function App() {
     setBidders([...INITIAL_BIDDERS]);
     setSelectedAlternates([]);
     setSelectedContractor("");
+  };
+
+  // Save / Load snapshot (JSON)
+  const exportSnapshot = () => {
+    const payload = {
+      version: 1,
+      numAlternates,
+      has2A,
+      xor34,
+      altLabels,
+      alt2ALabel,
+      budgetCap: budgetCap === "" ? null : budgetCap,
+      topN,
+      bidders,
+    };
+    const blob = new Blob([JSON.stringify(payload, null, 2)], { type: "application/json" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "bid_analyzer_snapshot.json";
+    a.click();
+  };
+
+  const importSnapshot: React.ChangeEventHandler<HTMLInputElement> = (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    const reader = new FileReader();
+    reader.onload = (evt) => {
+      try {
+        const obj = JSON.parse(String(evt.target?.result || "{}"));
+        const n = typeof obj.numAlternates === "number" && obj.numAlternates > 0 ? obj.numAlternates : INITIAL_NUM_ALTERNATES;
+        setNumAlternates(n);
+        setHas2A(!!obj.has2A);
+        setXor34(!!obj.xor34);
+        if (Array.isArray(obj.altLabels)) {
+          const next = Array.from({ length: n }, (_, i) => obj.altLabels[i] ?? `Alt ${i + 1}`);
+          setAltLabels(next);
+        }
+        setAlt2ALabel(typeof obj.alt2ALabel === "string" ? obj.alt2ALabel : INITIAL_ALT2ALABEL);
+        setBudgetCap(typeof obj.budgetCap === "number" ? obj.budgetCap : INITIAL_BUDGET_CAP);
+        setTopN(typeof obj.topN === "number" ? obj.topN : INITIAL_TOP_N);
+        if (Array.isArray(obj.bidders)) {
+          // coerce bidder shapes
+          const coerced: Bidder[] = obj.bidders.map((b: any, idx: number) => ({
+            id: typeof b.id === "number" ? b.id : idx + 1,
+            name: String(b.name ?? `Contractor ${idx + 1}`),
+            baseBid: Number(b.baseBid) || 0,
+            alternates: Array.from({ length: n }, (_, i) => Number(b.alternates?.[i]) || 0),
+            alternate2A: Number(b.alternate2A) || 0,
+          }));
+          setBidders(coerced);
+        }
+        setSelectedAlternates([]);
+        setSelectedContractor("");
+      } catch {
+        alert("Invalid snapshot file.");
+      } finally {
+        if (snapshotInputRef.current) snapshotInputRef.current.value = "";
+      }
+    };
+    reader.readAsText(file);
+  };
+
+  // CSV Template (matches importer headers)
+  const downloadTemplateCSV = () => {
+    const headers: string[] = ["Contractor", "Base Bid", ...Array.from({ length: numAlternates }, (_, i) => `Alt ${i + 1}`)];
+    if (has2A) headers.push("Alt 2A");
+    const blankRow = new Array(headers.length).fill("");
+    const rows = [headers, blankRow, blankRow, blankRow]; // 3 blank rows
+    const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
+    const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "bid_template.csv";
+    a.click();
   };
 
   // XOR rules
@@ -382,7 +460,7 @@ export default function App() {
       .sort((a, b) => b.pct - a.pct);
   }, [bidders, filteredCombinations]);
 
-  // --------- export ---------
+  // --------- export (analysis CSV) ---------
   const exportToCSV = () => {
     const headers = [
       "Base Bid & Alternate Combination",
@@ -408,14 +486,32 @@ export default function App() {
     <div className="min-h-screen bg-blue-200 flex flex-col">
       {/* Header bar */}
       <div className="bg-blue-300 text-blue-900 py-4 shadow-md">
-        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between gap-3">
           <h1 className="text-2xl font-semibold tracking-tight">Bid Analyzer</h1>
-          <button
-            onClick={resetData}
-            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-white shadow-sm hover:bg-red-700 transition-all"
-          >
-            <RefreshCw className="w-4 h-4" /> Refresh Data
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={resetData}
+              className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-white shadow-sm hover:bg-red-700 transition-all"
+              title="Reset to defaults"
+            >
+              <RefreshCw className="w-4 h-4" /> Refresh Data
+            </button>
+            <button
+              onClick={exportSnapshot}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
+              title="Save snapshot (.json)"
+            >
+              <Save className="w-4 h-4" /> Save
+            </button>
+            <button
+              onClick={() => snapshotInputRef.current?.click()}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
+              title="Load snapshot (.json)"
+            >
+              <FolderOpen className="w-4 h-4" /> Load
+            </button>
+            <input ref={snapshotInputRef} type="file" accept="application/json" className="hidden" onChange={importSnapshot} />
+          </div>
         </div>
       </div>
 
@@ -450,20 +546,6 @@ export default function App() {
               Include Alt 2A (mutually exclusive with Alt 2)
             </label>
 
-            <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
-              <input
-                type="checkbox"
-                className="mr-1"
-                checked={xor34}
-                onChange={() => {
-                  setXor34((v) => !v);
-                  setSelectedAlternates((prev) => enforceSelectionXOR(prev, [[2, 3]]));
-                }}
-                disabled={numAlternates < 4}
-              />
-              Alt 3 ⊻ Alt 4 (at most one)
-            </label>
-
             <button
               onClick={addBidder}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-teal-600 text-white shadow-sm hover:bg-teal-700 transition-all"
@@ -483,6 +565,14 @@ export default function App() {
               <span className="text-sm">Import Excel/CSV</span>
               <input type="file" accept=".xlsx,.xls,.csv" className="hidden" onChange={handleImport} />
             </label>
+
+            <button
+              onClick={downloadTemplateCSV}
+              className="inline-flex items-center gap-2 px-3 py-2 rounded-xl bg-stone-200 text-stone-800 hover:bg-stone-300"
+              title="Download CSV template"
+            >
+              <FileDown className="w-4 h-4" /> Template
+            </button>
           </div>
         </div>
 
@@ -634,7 +724,7 @@ export default function App() {
           )}
         </div>
 
-        {/* Bidder Input Table Card (moved near bottom, above Labels & Budget) */}
+        {/* Bidder Input Table Card (near bottom, above Labels & Budget) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
           <div className="overflow-x-auto">
             <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
@@ -708,7 +798,15 @@ export default function App() {
 
         {/* Alternate Labels & Budget Card (at very bottom) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-4">Alternate Labels & Budget</h2>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-xl font-semibold text-stone-800">Alternate Labels & Budget</h2>
+            <button
+              onClick={() => setIsAdvancedOpen((v) => !v)}
+              className="text-sm text-stone-700 hover:text-stone-900"
+            >
+              Advanced {isAdvancedOpen ? "▾" : "▸"}
+            </button>
+          </div>
 
           <div className="grid sm:grid-cols-2 gap-4">
             <div>
@@ -742,31 +840,52 @@ export default function App() {
               </div>
             </div>
 
+            {/* Advanced collapsible */}
             <div>
-              <div className="text-sm font-medium text-stone-700 mb-2">Owner Budget Cap ($)</div>
-              <input
-                type="number"
-                value={budgetCap}
-                onChange={(e) => {
-                  const v = e.target.value;
-                  setBudgetCap(v === "" ? "" : parseFloat(v) || 0);
-                }}
-                className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                placeholder="Leave blank for no cap"
-              />
-              <div className="text-xs text-stone-500 mt-1">Filtering is applied to Top Combinations, Winning % and contractor scenarios.</div>
+              {isAdvancedOpen && (
+                <div className="space-y-3">
+                  <div>
+                    <div className="text-sm font-medium text-stone-700 mb-2">Owner Budget Cap ($)</div>
+                    <input
+                      type="number"
+                      value={budgetCap}
+                      onChange={(e) => {
+                        const v = e.target.value;
+                        setBudgetCap(v === "" ? "" : parseFloat(v) || 0);
+                      }}
+                      className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                      placeholder="Leave blank for no cap"
+                    />
+                    <div className="text-xs text-stone-500 mt-1">Filtering applies to Top Combinations, Winning %, and contractor scenarios.</div>
+                  </div>
 
-              <div className="mt-3">
-                <label className="text-sm font-medium text-stone-700">Show Top N combinations:</label>
-                <input
-                  type="number"
-                  min={1}
-                  max={100}
-                  value={topN}
-                  onChange={(e) => setTopN(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
-                  className="ml-2 w-24 px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                />
-              </div>
+                  <div className="flex items-center gap-3">
+                    <label className="text-sm font-medium text-stone-700">Show Top N combinations:</label>
+                    <input
+                      type="number"
+                      min={1}
+                      max={100}
+                      value={topN}
+                      onChange={(e) => setTopN(Math.max(1, Math.min(100, parseInt(e.target.value) || 1)))}
+                      className="w-24 px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
+                    />
+                  </div>
+
+                  <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
+                    <input
+                      type="checkbox"
+                      className="mr-1"
+                      checked={xor34}
+                      onChange={() => {
+                        setXor34((v) => !v);
+                        setSelectedAlternates((prev) => enforceSelectionXOR(prev, [[2, 3]]));
+                      }}
+                      disabled={numAlternates < 4}
+                    />
+                    Alt 3 ⊻ Alt 4 (at most one)
+                  </label>
+                </div>
+              )}
             </div>
           </div>
         </div>
