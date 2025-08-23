@@ -2,7 +2,7 @@
 // Libraries used: react, react-dom, lucide-react, xlsx
 
 import React, { useEffect, useMemo, useState } from "react";
-import { Upload } from "lucide-react";
+import { Upload, RefreshCw } from "lucide-react";
 import * as XLSX from "xlsx";
 
 type AltIndex = number | "alt2A";
@@ -23,9 +23,7 @@ type ComboResult = {
 };
 
 const fmt$ = (n: number) =>
-  `$${(Number(n) || 0).toLocaleString(undefined, {
-    maximumFractionDigits: 0,
-  })}`;
+  `$${(Number(n) || 0).toLocaleString(undefined, { maximumFractionDigits: 0 })}`;
 
 function enforceSelectionXOR(
   selection: AltIndex[],
@@ -42,42 +40,52 @@ function enforceSelectionXOR(
 
 const STORAGE_KEY = "bidanalyzer_state_v1";
 
+// ----- Defaults for Refresh -----
+const INITIAL_NUM_ALTERNATES = 2;
+const INITIAL_HAS2A = false;
+const INITIAL_XOR34 = false;
+const INITIAL_ALT_LABELS = ["Alt 1", "Alt 2"];
+const INITIAL_ALT2A_LABEL = "Alt 2A";
+const INITIAL_BUDGET_CAP: number | "" = "";
+const INITIAL_TOP_N = 10;
+const INITIAL_BIDDERS: Bidder[] = [
+  {
+    id: 1,
+    name: "Contractor A",
+    baseBid: 100000,
+    alternates: [5000, 3000],
+    alternate2A: 4000,
+  },
+  {
+    id: 2,
+    name: "Contractor B",
+    baseBid: 105000,
+    alternates: [4500, 2500],
+    alternate2A: 3500,
+  },
+  {
+    id: 3,
+    name: "Contractor C",
+    baseBid: 98000,
+    alternates: [6000, 3500],
+    alternate2A: 4200,
+  },
+];
+
 export default function App() {
   // Config / toggles
-  const [numAlternates, setNumAlternates] = useState<number>(2);
-  const [has2A, setHas2A] = useState<boolean>(false); // default: unchecked
-  const [xor34, setXor34] = useState<boolean>(false); // optional Alt3 vs Alt4
+  const [numAlternates, setNumAlternates] = useState<number>(INITIAL_NUM_ALTERNATES);
+  const [has2A, setHas2A] = useState<boolean>(INITIAL_HAS2A); // default: unchecked
+  const [xor34, setXor34] = useState<boolean>(INITIAL_XOR34); // optional Alt3 vs Alt4
 
   // Labels & controls
-  const [altLabels, setAltLabels] = useState<string[]>(["Alt 1", "Alt 2"]);
-  const [alt2ALabel, setAlt2ALabel] = useState<string>("Alt 2A");
-  const [budgetCap, setBudgetCap] = useState<number | "">("");
-  const [topN, setTopN] = useState<number>(10);
+  const [altLabels, setAltLabels] = useState<string[]>([...INITIAL_ALT_LABELS]);
+  const [alt2ALabel, setAlt2ALabel] = useState<string>(INITIAL_ALT2A_LABEL);
+  const [budgetCap, setBudgetCap] = useState<number | "">(INITIAL_BUDGET_CAP);
+  const [topN, setTopN] = useState<number>(INITIAL_TOP_N);
 
   // Data
-  const [bidders, setBidders] = useState<Bidder[]>([
-    {
-      id: 1,
-      name: "Contractor A",
-      baseBid: 100000,
-      alternates: [5000, 3000],
-      alternate2A: 4000,
-    },
-    {
-      id: 2,
-      name: "Contractor B",
-      baseBid: 105000,
-      alternates: [4500, 2500],
-      alternate2A: 3500,
-    },
-    {
-      id: 3,
-      name: "Contractor C",
-      baseBid: 98000,
-      alternates: [6000, 3500],
-      alternate2A: 4200,
-    },
-  ]);
+  const [bidders, setBidders] = useState<Bidder[]>([...INITIAL_BIDDERS]);
 
   // UI state
   const [selectedAlternates, setSelectedAlternates] = useState<AltIndex[]>([]);
@@ -117,6 +125,21 @@ export default function App() {
     } catch {}
   }, [numAlternates, has2A, xor34, bidders, altLabels, alt2ALabel, topN, budgetCap]);
 
+  // Reset/Refresh handler
+  const resetData = () => {
+    try { localStorage.removeItem(STORAGE_KEY); } catch {}
+    setNumAlternates(INITIAL_NUM_ALTERNATES);
+    setHas2A(INITIAL_HAS2A);
+    setXor34(INITIAL_XOR34);
+    setAltLabels([...INITIAL_ALT_LABELS]);
+    setAlt2ALabel(INITIAL_ALT2A_LABEL);
+    setBudgetCap(INITIAL_BUDGET_CAP);
+    setTopN(INITIAL_TOP_N);
+    setBidders([...INITIAL_BIDDERS]);
+    setSelectedAlternates([]);
+    setSelectedContractor("");
+  };
+
   // XOR rules
   const xorRules = useMemo<Array<[AltIndex, AltIndex]>>(() => {
     const rules: Array<[AltIndex, AltIndex]> = [];
@@ -148,9 +171,7 @@ export default function App() {
     field: keyof Bidder,
     value: Bidder[typeof field]
   ) =>
-    setBidders((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, [field]: value } : b))
-    );
+    setBidders((prev) => prev.map((b) => (b.id === id ? { ...b, [field]: value } : b)));
 
   const updateAlternate = (
     bidderId: number,
@@ -173,9 +194,7 @@ export default function App() {
   const updateAlternate2A = (bidderId: number, value: string | number) =>
     setBidders((prev) =>
       prev.map((b) =>
-        b.id === bidderId
-          ? { ...b, alternate2A: parseFloat(String(value)) || 0 }
-          : b
+        b.id === bidderId ? { ...b, alternate2A: parseFloat(String(value)) || 0 } : b
       )
     );
 
@@ -190,26 +209,19 @@ export default function App() {
       }))
     );
     setSelectedAlternates([]);
-    setAltLabels((prev) =>
-      Array(newNum)
-        .fill(0)
-        .map((_, i) => prev[i] ?? `Alt ${i + 1}`)
-    );
+    setAltLabels((prev) => Array(newNum).fill(0).map((_, i) => prev[i] ?? `Alt ${i + 1}`));
   };
 
   const toggleHas2A = () => {
     const next = !has2A;
     setHas2A(next);
-    if (!next)
-      setSelectedAlternates((prev) => prev.filter((x) => x !== "alt2A"));
+    if (!next) setSelectedAlternates((prev) => prev.filter((x) => x !== "alt2A"));
   };
 
   const toggleAlternate = (indexOr2A: AltIndex) => {
     setSelectedAlternates((prev) => {
       const isOn = prev.some((x) => x === indexOr2A);
       let next = isOn ? prev.filter((x) => x !== indexOr2A) : [...prev, indexOr2A];
-
-      // enforce XOR locally
       for (const [a, b] of xorRules) {
         if (next.includes(a) && next.includes(b)) {
           const toDrop = indexOr2A === a ? b : indexOr2A === b ? a : b;
@@ -227,16 +239,12 @@ export default function App() {
   };
 
   const normalizeRow = (obj: Record<string, any>): Omit<Bidder, "id"> => {
-    // Accept headers like Contractor/Name, Base/Base Bid, Alt1..AltN, Alt 2A / Alt2A
     const name: string = obj.Contractor || obj.Name || obj["Contractor Name"] || "";
     const base = coerceNumber(obj.Base ?? obj["Base Bid"] ?? obj["Base ($)"] ?? 0);
 
     const altEntries = Object.entries(obj)
       .filter(([k]) => /^Alt\s*\d+$/i.test(k))
-      .sort(
-        (a, b) =>
-          Number(a[0].match(/\d+/)?.[0] || 0) - Number(b[0].match(/\d+/)?.[0] || 0)
-      );
+      .sort((a, b) => Number(a[0].match(/\d+/)?.[0] || 0) - Number(b[0].match(/\d+/)?.[0] || 0));
 
     const alternates = altEntries.map(([, v]) => coerceNumber(v));
     const alt2a = coerceNumber(obj["Alt 2A"] ?? obj["Alt2A"] ?? obj["Alternate 2A"] ?? 0);
@@ -258,9 +266,7 @@ export default function App() {
           const wb = XLSX.read(data as ArrayBuffer, { type: "array" });
           const ws = wb.Sheets[wb.SheetNames[0]];
           const json = XLSX.utils.sheet_to_json(ws);
-          const normalized = (json as Record<string, any>[])
-            .map(normalizeRow)
-            .filter((r) => r.name);
+          const normalized = (json as Record<string, any>[]).map(normalizeRow).filter((r) => r.name);
           const maxAlts = Math.max(0, ...normalized.map((r) => r.alternates.length));
           setNumAlternates(maxAlts);
           setBidders(
@@ -275,7 +281,6 @@ export default function App() {
           setSelectedAlternates([]);
           setAltLabels(Array.from({ length: maxAlts }, (_, i) => `Alt ${i + 1}`));
         } else if (ext === "csv") {
-          // lightweight CSV (no quoted commas)
           const text = new TextDecoder().decode(data as ArrayBuffer);
           const lines = text.split(/\r?\n/).filter(Boolean);
           const headers = lines[0].split(",").map((h) => h.trim());
@@ -346,17 +351,9 @@ export default function App() {
         .map((b) => ({ name: b.name, total: calcTotal(b, combo) }))
         .sort((a, b) => a.total - b.total);
 
-      const label =
-        combo.length === 0
-          ? "Base Bid Only"
-          : "Base + " + combo.map((c) => labelFor(c)).join(", ");
+      const label = combo.length === 0 ? "Base Bid Only" : "Base + " + combo.map((c) => labelFor(c)).join(", ");
 
-      combos.push({
-        alternates: label,
-        alternateIndices: combo,
-        winner: results[0],
-        allBids: results,
-      });
+      combos.push({ alternates: label, alternateIndices: combo, winner: results[0], allBids: results });
     }
 
     return combos.sort((a, b) => a.winner.total - b.winner.total);
@@ -414,16 +411,9 @@ export default function App() {
     const rows = filteredCombinations.map((c) => {
       const winner = c.allBids[0];
       const next = c.allBids[1];
-      return [
-        c.alternates,
-        winner.name,
-        winner.total,
-        next ? next.total - winner.total : 0,
-      ];
+      return [c.alternates, winner.name, winner.total, next ? next.total - winner.total : 0];
     });
-    const csv = [headers, ...rows]
-      .map((r) => r.map((cell) => `"${cell}"`).join(","))
-      .join("\n");
+    const csv = [headers, ...rows].map((r) => r.map((cell) => `"${cell}"`).join(",")).join("\n");
     const blob = new Blob([csv], { type: "text/csv;charset=utf-8;" });
     const a = document.createElement("a");
     a.href = URL.createObjectURL(blob);
@@ -436,8 +426,14 @@ export default function App() {
     <div className="min-h-screen bg-blue-200 flex flex-col">
       {/* Header bar */}
       <div className="bg-blue-300 text-blue-900 py-4 shadow-md">
-        <div className="max-w-7xl mx-auto px-6">
+        <div className="max-w-7xl mx-auto px-6 flex items-center justify-between">
           <h1 className="text-2xl font-semibold tracking-tight">Bid Analyzer</h1>
+          <button
+            onClick={resetData}
+            className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-red-600 text-white shadow-sm hover:bg-red-700 transition-all"
+          >
+            <RefreshCw className="w-4 h-4" /> Refresh Data
+          </button>
         </div>
       </div>
 
@@ -445,7 +441,7 @@ export default function App() {
         {/* Controls Card */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <p className="text-sm text-stone-600 italic mt-2">
-            Compare base bids and alternates with clear, warm visuals.
+            <em>Ownership Tool for Comparing All Possible Winning Combinations Instantly!</em>
           </p>
 
           <div className="mt-4 flex flex-wrap gap-4 items-center">
@@ -508,7 +504,155 @@ export default function App() {
           </div>
         </div>
 
-        {/* Labels & Budget Card */}
+        {/* Winning Percentages Card (moved before Current Selection) */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-stone-800 mb-3">Winning Percentage by Contractor</h2>
+          {winningStats.length === 0 ? (
+            <div className="text-stone-700 italic">No scenarios available.</div>
+          ) : (
+            <div className="space-y-2">
+              {winningStats.map(({ name, pct, wins }) => (
+                <div key={name} className="flex items-center gap-3">
+                  <div className="w-40 text-sm text-stone-800">{name}</div>
+                  <div className="flex-1 bg-stone-100 rounded-full overflow-hidden h-3">
+                    <div className="bg-emerald-500 h-3" style={{ width: `${pct.toFixed(1)}%` }} />
+                  </div>
+                  <div className="w-28 text-right text-sm text-stone-700">{pct.toFixed(1)}% ({wins})</div>
+                </div>
+              ))}
+            </div>
+          )}
+          <p className="text-xs text-stone-500 mt-2">Based on all valid combinations after applying your budget cap (if any).</p>
+        </div>
+
+        {/* Current Selection Card (now after Winning %) */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-stone-800 mb-4">Current Selection</h2>
+
+          <div className="mb-4">
+            <p className="text-[15px] font-medium text-stone-800 mb-2">Select Alternates to Include:</p>
+            <div className="flex flex-wrap gap-3">
+              {Array.from({ length: numAlternates }, (_, idx) => {
+                const checked = selectedAlternates.includes(idx);
+                const disabled34 =
+                  xor34 &&
+                  numAlternates >= 4 &&
+                  ((idx === 2 && selectedAlternates.includes(3)) || (idx === 3 && selectedAlternates.includes(2)));
+                return (
+                  <label key={idx} className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg ${disabled34 ? "opacity-60" : ""}`}>
+                    <input
+                      type="checkbox"
+                      checked={checked}
+                      onChange={() => toggleAlternate(idx)}
+                      className="rounded"
+                      disabled={disabled34 && !checked}
+                    />
+                    <span className="text-stone-800">{altLabels[idx] ?? `Alt ${idx + 1}`}</span>
+                  </label>
+                );
+              })}
+              {has2A && (
+                <label className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg ${selectedAlternates.includes(1) ? "opacity-60" : ""}`}>
+                  <input
+                    type="checkbox"
+                    checked={selectedAlternates.includes("alt2A")}
+                    onChange={() => toggleAlternate("alt2A")}
+                    className="rounded"
+                    disabled={selectedAlternates.includes(1) && !selectedAlternates.includes("alt2A")}
+                  />
+                  <span className="text-stone-800">{alt2ALabel}</span>
+                </label>
+              )}
+            </div>
+            <p className="text-xs text-stone-500 italic mt-2">Totals update live as you toggle alternates.</p>
+          </div>
+
+          <div className="space-y-2">
+            {currentTotals.map((b, i) => (
+              <div key={b.id} className={`p-3 rounded-xl border-l-4 ${i === 0 ? "bg-emerald-50 border-emerald-500" : "bg-stone-50 border-stone-300"}`}>
+                <div className="flex justify-between items-center">
+                  <span className="font-medium text-stone-800">{i === 0 && <span className="text-emerald-600 mr-2">🏆</span>}{b.name}</span>
+                  <span className="text-lg font-semibold text-stone-900">{fmt$(b.total as number)}</span>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+
+        {/* Top Combinations Card */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-stone-800 mb-4">Top Combinations</h2>
+          {filteredCombinations.length === 0 ? (
+            <div className="text-stone-700 italic">No combinations found. Adjust budget or data.</div>
+          ) : (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {filteredCombinations.slice(0, topN).map((c, i) => (
+                <div key={i} className="border border-stone-200 rounded-xl p-3">
+                  <div className="font-medium text-stone-700 mb-1">{c.alternates}</div>
+                  <div className="bg-emerald-50 p-2 rounded border-l-4 border-emerald-500">
+                    <div className="flex justify-between items-center">
+                      <span className="font-medium text-emerald-800"><span className="mr-1">🏆</span>{c.winner.name}</span>
+                      <span className="font-bold text-emerald-800">{fmt$(c.winner.total)}</span>
+                    </div>
+                  </div>
+                  {c.allBids[1] && (
+                    <div className="bg-stone-50 p-2 rounded mt-1">
+                      <div className="flex justify-between items-center text-sm">
+                        <span className="text-stone-700">Next: {c.allBids[1].name}</span>
+                        <span className="text-stone-700">{fmt$(c.allBids[1].total)} (+{fmt$(c.allBids[1].total - c.winner.total)})</span>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+
+        {/* Contractor-Specific Card (only show lowest 2 bids per scenario) */}
+        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
+          <h2 className="text-xl font-semibold text-stone-800 mb-4">Contractor-Specific Winning Combinations (Top 2 bids per scenario)</h2>
+
+          <div className="mb-4">
+            <label htmlFor="contractorSel" className="text-[15px] font-medium text-stone-800 mr-3">Select Contractor:</label>
+            <select
+              id="contractorSel"
+              value={selectedContractor}
+              onChange={(e) => setSelectedContractor(e.target.value)}
+              className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400 min-w-[12rem]"
+            >
+              <option value="">-- Choose a contractor --</option>
+              {bidders.map((b) => (
+                <option key={b.id} value={b.name}>{b.name}</option>
+              ))}
+            </select>
+            <p className="text-xs text-stone-500 italic mt-2">Shows only the lowest two bids for each scenario (after budget filtering).</p>
+          </div>
+
+          {selectedContractor && (
+            <div className="space-y-3 max-h-96 overflow-y-auto">
+              {contractorWinningCombos.length === 0 ? (
+                <div className="text-stone-700 italic p-4 bg-stone-50 border border-stone-200 rounded-2xl text-center">{selectedContractor} is not the lowest bidder in any scenario.</div>
+              ) : (
+                contractorWinningCombos.map((combo, index) => (
+                  <div key={index} className="border border-stone-200 rounded-xl p-3">
+                    <div className="font-medium text-stone-700 mb-2">{combo.alternates}</div>
+                    {combo.allBids.slice(0, 2).map((bid, idx) => (
+                      <div key={idx} className={`${idx === 0 ? "bg-emerald-50 border-l-4 border-emerald-500" : "bg-stone-50 border-l-4 border-stone-300"} p-2 rounded mt-1`}>
+                        <div className="flex justify-between items-center text-sm">
+                          <span className={`font-medium ${idx === 0 ? "text-emerald-800" : "text-stone-700"}`}>{idx === 0 && <span className="mr-1">🏆</span>}{bid.name}</span>
+                          <span className={idx === 0 ? "text-emerald-800 font-semibold" : "text-stone-700"}>{fmt$(bid.total)}</span>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ))
+              )}
+            </div>
+          )}
+        </div>
+
+        {/* Alternate Labels & Budget Card (moved to bottom) */}
         <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
           <h2 className="text-xl font-semibold text-stone-800 mb-4">Alternate Labels & Budget</h2>
 
@@ -556,9 +700,7 @@ export default function App() {
                 className="w-full px-3 py-2 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
                 placeholder="Leave blank for no cap"
               />
-              <div className="text-xs text-stone-500 mt-1">
-                Filtering is applied to Top Combinations, Winning % and contractor scenarios.
-              </div>
+              <div className="text-xs text-stone-500 mt-1">Filtering is applied to Top Combinations, Winning % and contractor scenarios.</div>
 
               <div className="mt-3">
                 <label className="text-sm font-medium text-stone-700">Show Top N combinations:</label>
@@ -573,294 +715,6 @@ export default function App() {
               </div>
             </div>
           </div>
-        </div>
-
-        {/* Bidder Input Table Card */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-4">
-          <div className="overflow-x-auto">
-            <table className="w-full border border-stone-200 rounded-xl overflow-hidden">
-              <thead className="bg-stone-50 sticky top-0 z-10">
-                <tr className="text-left text-stone-700">
-                  <th className="px-4 py-2 border-b border-stone-200">Contractor</th>
-                  <th className="px-4 py-2 border-b border-stone-200">Base Bid ($)</th>
-                  {Array.from({ length: numAlternates }, (_, idx) => (
-                    <th key={idx} className="px-4 py-2 border-b border-stone-200">
-                      {altLabels[idx] ?? `Alt ${idx + 1}`}
-                      <div className="text-xs text-stone-500 italic">($)</div>
-                    </th>
-                  ))}
-                  {has2A && (
-                    <th className="px-4 py-2 border-b border-stone-200">
-                      {alt2ALabel}
-                      <div className="text-xs text-stone-500 italic">($)</div>
-                    </th>
-                  )}
-                  <th className="px-4 py-2 border-b border-stone-200">Actions</th>
-                </tr>
-              </thead>
-              <tbody className="[&>tr:nth-child(even)]:bg-stone-50/60">
-                {bidders.map((b) => (
-                  <tr key={b.id} className="hover:bg-amber-50/40 transition-colors">
-                    <td className="px-4 py-2 border-b border-stone-100">
-                      <input
-                        type="text"
-                        value={b.name}
-                        onChange={(e) => updateBidder(b.id, "name", e.target.value)}
-                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      />
-                    </td>
-                    <td className="px-4 py-2 border-b border-stone-100">
-                      <input
-                        type="number"
-                        value={b.baseBid}
-                        onChange={(e) =>
-                          updateBidder(b.id, "baseBid", parseFloat(e.target.value) || 0)
-                        }
-                        className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                      />
-                    </td>
-                    {Array.from({ length: numAlternates }, (_, idx) => (
-                      <td key={idx} className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="number"
-                          value={b.alternates[idx] || 0}
-                          onChange={(e) => updateAlternate(b.id, idx, e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
-                      </td>
-                    ))}
-                    {has2A && (
-                      <td className="px-4 py-2 border-b border-stone-100">
-                        <input
-                          type="number"
-                          value={b.alternate2A || 0}
-                          onChange={(e) => updateAlternate2A(b.id, e.target.value)}
-                          className="w-full px-2 py-1 rounded-lg border border-stone-300 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
-                        />
-                      </td>
-                    )}
-                    <td className="px-4 py-2 border-b border-stone-100 text-center">
-                      <button
-                        onClick={() => removeBidder(b.id)}
-                        className="text-red-500 hover:text-red-700 text-lg"
-                      >
-                        🗑️
-                      </button>
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        </div>
-
-        {/* Current Selection Card */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-4">Current Selection</h2>
-
-          <div className="mb-4">
-            <p className="text-[15px] font-medium text-stone-800 mb-2">Select Alternates to Include:</p>
-            <div className="flex flex-wrap gap-3">
-              {Array.from({ length: numAlternates }, (_, idx) => {
-                const checked = selectedAlternates.includes(idx);
-                const disabled34 =
-                  xor34 &&
-                  numAlternates >= 4 &&
-                  ((idx === 2 && selectedAlternates.includes(3)) ||
-                    (idx === 3 && selectedAlternates.includes(2)));
-                return (
-                  <label
-                    key={idx}
-                    className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg ${
-                      disabled34 ? "opacity-60" : ""
-                    }`}
-                  >
-                    <input
-                      type="checkbox"
-                      checked={checked}
-                      onChange={() => toggleAlternate(idx)}
-                      className="rounded"
-                      disabled={disabled34 && !checked}
-                    />
-                    <span className="text-stone-800">{altLabels[idx] ?? `Alt ${idx + 1}`}</span>
-                  </label>
-                );
-              })}
-              {has2A && (
-                <label
-                  className={`flex items-center gap-3 cursor-pointer py-1.5 px-2 rounded-lg ${
-                    selectedAlternates.includes(1) ? "opacity-60" : ""
-                  }`}
-                >
-                  <input
-                    type="checkbox"
-                    checked={selectedAlternates.includes("alt2A")}
-                    onChange={() => toggleAlternate("alt2A")}
-                    className="rounded"
-                    disabled={selectedAlternates.includes(1) && !selectedAlternates.includes("alt2A")}
-                  />
-                  <span className="text-stone-800">{alt2ALabel}</span>
-                </label>
-              )}
-            </div>
-            <p className="text-xs text-stone-500 italic mt-2">
-              Totals update live as you toggle alternates.
-            </p>
-          </div>
-
-          <div className="space-y-2">
-            {currentTotals.map((b, i) => (
-              <div
-                key={b.id}
-                className={`p-3 rounded-xl border-l-4 ${
-                  i === 0 ? "bg-emerald-50 border-emerald-500" : "bg-stone-50 border-stone-300"
-                }`}
-              >
-                <div className="flex justify-between items-center">
-                  <span className="font-medium text-stone-800">
-                    {i === 0 && <span className="text-emerald-600 mr-2">🏆</span>}
-                    {b.name}
-                  </span>
-                  <span className="text-lg font-semibold text-stone-900">{fmt$(b.total as number)}</span>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        {/* Winning Percentages Card */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-3">Winning Percentage by Contractor</h2>
-          {winningStats.length === 0 ? (
-            <div className="text-stone-700 italic">No scenarios available.</div>
-          ) : (
-            <div className="space-y-2">
-              {winningStats.map(({ name, pct, wins }) => (
-                <div key={name} className="flex items-center gap-3">
-                  <div className="w-40 text-sm text-stone-800">{name}</div>
-                  <div className="flex-1 bg-stone-100 rounded-full overflow-hidden h-3">
-                    <div className="bg-emerald-500 h-3" style={{ width: `${pct.toFixed(1)}%` }} />
-                  </div>
-                  <div className="w-28 text-right text-sm text-stone-700">
-                    {pct.toFixed(1)}% ({wins})
-                  </div>
-                </div>
-              ))}
-            </div>
-          )}
-          <p className="text-xs text-stone-500 mt-2">
-            Based on all valid combinations after applying your budget cap (if any).
-          </p>
-        </div>
-
-        {/* Top Combinations Card */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-4">Top Combinations</h2>
-          {filteredCombinations.length === 0 ? (
-            <div className="text-stone-700 italic">No combinations found. Adjust budget or data.</div>
-          ) : (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {filteredCombinations.slice(0, topN).map((c, i) => (
-                <div key={i} className="border border-stone-200 rounded-xl p-3">
-                  <div className="font-medium text-stone-700 mb-1">{c.alternates}</div>
-                  <div className="bg-emerald-50 p-2 rounded border-l-4 border-emerald-500">
-                    <div className="flex justify-between items-center">
-                      <span className="font-medium text-emerald-800">
-                        <span className="mr-1">🏆</span>
-                        {c.winner.name}
-                      </span>
-                      <span className="font-bold text-emerald-800">{fmt$(c.winner.total)}</span>
-                    </div>
-                  </div>
-                  {c.allBids[1] && (
-                    <div className="bg-stone-50 p-2 rounded mt-1">
-                      <div className="flex justify-between items-center text-sm">
-                        <span className="text-stone-700">Next: {c.allBids[1].name}</span>
-                        <span className="text-stone-700">
-                          {fmt$(c.allBids[1].total)} (+{fmt$(c.allBids[1].total - c.winner.total)})
-                        </span>
-                      </div>
-                    </div>
-                  )}
-                </div>
-              ))}
-            </div>
-          )}
-        </div>
-
-        {/* Contractor-Specific Card (only show lowest 2 bids per scenario) */}
-        <div className="bg-white border border-stone-200 rounded-2xl shadow-sm p-6">
-          <h2 className="text-xl font-semibold text-stone-800 mb-4">
-            Contractor-Specific Winning Combinations (Top 2 bids per scenario)
-          </h2>
-
-          <div className="mb-4">
-            <label
-              htmlFor="contractorSel"
-              className="text-[15px] font-medium text-stone-800 mr-3"
-            >
-              Select Contractor:
-            </label>
-            <select
-              id="contractorSel"
-              value={selectedContractor}
-              onChange={(e) => setSelectedContractor(e.target.value)}
-              className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400 min-w-[12rem]"
-            >
-              <option value="">-- Choose a contractor --</option>
-              {bidders.map((b) => (
-                <option key={b.id} value={b.name}>
-                  {b.name}
-                </option>
-              ))}
-            </select>
-            <p className="text-xs text-stone-500 italic mt-2">
-              Shows only the lowest two bids for each scenario (after budget filtering).
-            </p>
-          </div>
-
-          {selectedContractor && (
-            <div className="space-y-3 max-h-96 overflow-y-auto">
-              {contractorWinningCombos.length === 0 ? (
-                <div className="text-stone-700 italic p-4 bg-stone-50 border border-stone-200 rounded-2xl text-center">
-                  {selectedContractor} is not the lowest bidder in any scenario.
-                </div>
-              ) : (
-                contractorWinningCombos.map((combo, index) => (
-                  <div key={index} className="border border-stone-200 rounded-xl p-3">
-                    <div className="font-medium text-stone-700 mb-2">{combo.alternates}</div>
-
-                    {combo.allBids.slice(0, 2).map((bid, idx) => (
-                      <div
-                        key={idx}
-                        className={`${
-                          idx === 0
-                            ? "bg-emerald-50 border-l-4 border-emerald-500"
-                            : "bg-stone-50 border-l-4 border-stone-300"
-                        } p-2 rounded mt-1`}
-                      >
-                        <div className="flex justify-between items-center text-sm">
-                          <span
-                            className={`font-medium ${
-                              idx === 0 ? "text-emerald-800" : "text-stone-700"
-                            }`}
-                          >
-                            {idx === 0 && <span className="mr-1">🏆</span>}
-                            {bid.name}
-                          </span>
-                          <span
-                            className={idx === 0 ? "text-emerald-800 font-semibold" : "text-stone-700"}
-                          >
-                            {fmt$(bid.total)}
-                          </span>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ))
-              )}
-            </div>
-          )}
         </div>
       </div>
 
