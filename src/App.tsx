@@ -44,7 +44,21 @@ const STORAGE_KEY = "bidanalyzer_state_v1";
 const INITIAL_NUM_ALTERNATES = 2;
 const INITIAL_HAS2A = false; // default unchecked
 const INITIAL_XOR34 = false;
-const INITIAL_ALT_LABELS = ["Alt 1", "Alt 2"];
+const INITIAL_ALT_LABELS = [
+  "Alt 1",
+  "Alt 2",
+  "Alt 2A",
+  "Alt 3",
+  "Alt 4",
+  "Alt 5",
+  "Alt 6",
+  "Alt 7",
+  "Alt 8",
+  "Alt 9",
+  "Alt 10",
+  "Alt 11",
+  "Alt 12",
+];
 const INITIAL_ALT2A_LABEL = "Alt 2A";
 const INITIAL_BUDGET_CAP: number | "" = "";
 const INITIAL_TOP_N = 10;
@@ -691,11 +705,19 @@ export default function App() {
                 onChange={(e) => updateNumAlternates(parseInt(e.target.value))}
                 className="border border-stone-300 rounded-xl px-3 py-2 bg-white text-stone-800 focus:ring-2 focus:ring-teal-200 focus:border-teal-400"
               >
-                {Array.from({ length: 12 }, (_, i) => (
-                  <option key={i + 1} value={i + 1}>
-                    {i + 1}
-                  </option>
-                ))}
+                <option value={1}>1</option>
+                <option value={2}>2</option>
+                <option value={3}>2A</option>
+                <option value={4}>3</option>
+                <option value={5}>4</option>
+                <option value={6}>5</option>
+                <option value={7}>6</option>
+                <option value={8}>7</option>
+                <option value={9}>8</option>
+                <option value={10}>9</option>
+                <option value={11}>10</option>
+                <option value={12}>11</option>
+                <option value={13}>12</option>
               </select>
             </div>
 
