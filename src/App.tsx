@@ -721,33 +721,6 @@ export default function App() {
               </select>
             </div>
 
-            <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
-              <input
-                type="checkbox"
-                className="mr-1"
-                checked={has2A}
-                onChange={toggleHas2A}
-              />
-              Include Alt 2A
-            </label>
-
-            {/* Alt 3 vs Alt 4 at the top controls */}
-            <label className="flex items-center gap-2 text-[15px] font-medium text-stone-800">
-              <input
-                type="checkbox"
-                className="mr-1"
-                checked={xor34}
-                onChange={() => {
-                  setXor34((v) => !v);
-                  setSelectedAlternates((prev) =>
-                    enforceSelectionXOR(prev, [[2, 3]])
-                  );
-                }}
-                disabled={numAlternates < 4}
-              />
-              Alt 3 ⊻ Alt 4 (at most one)
-            </label>
-
             <button
               onClick={exportToCSV}
               className="inline-flex items-center gap-2 px-4 py-2 rounded-xl bg-amber-600 text-white shadow-sm hover:bg-amber-700 transition-all"
