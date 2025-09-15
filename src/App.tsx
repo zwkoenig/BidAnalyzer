@@ -397,18 +397,20 @@ export default function App() {
       obj.Base ?? obj["Base Bid"] ?? obj["Base ($)"] ?? 0
     );
 
-    const altEntries = Object.entries(obj)
-      .filter(([k]) => /^Alt\s*\d+$/i.test(k))
-      .sort(
-        (a, b) =>
-          Number(a[0].match(/\d+/)?.[0] || 0) -
-          Number(b[0].match(/\d+/)?.[0] || 0)
-      );
+    // Create alternates array with Alt 2A in position 2
+    const alternates: number[] = [];
 
-    const alternates = altEntries.map(([, v]) => coerceNumber(v));
-    const alt2a = coerceNumber(
-      obj["Alt 2A"] ?? obj["Alt2A"] ?? obj["Alternate 2A"] ?? 0
-    );
+    // Add Alt 1 and Alt 2
+    alternates[0] = coerceNumber(obj["Alt 1"] ?? 0);
+    alternates[1] = coerceNumber(obj["Alt 2"] ?? 0);
+
+    // Add Alt 2A at position 2
+    alternates[2] = coerceNumber(obj["Alt 2A"] ?? 0);
+
+    // Add Alt 3, Alt 4, etc. starting at position 3
+    for (let i = 3; i <= 12; i++) {
+      alternates[i] = coerceNumber(obj[`Alt ${i}`] ?? 0);
+    }
 
     return { name, baseBid: base, alternates, alternate2A: alt2a };
   };
@@ -430,21 +432,15 @@ export default function App() {
           const normalized = (json as Record<string, any>[])
             .map(normalizeRow)
             .filter((r) => r.name);
-          const maxAlts = Math.max(
-            0,
-            ...normalized.map((r) => r.alternates.length)
-          );
+          const maxAlts = 13;
           setNumAlternates(maxAlts);
           setBidders(
             normalized.map((r, idx) => ({
               id: idx + 1,
               name: r.name,
               baseBid: r.baseBid,
-              alternates: Array.from(
-                { length: maxAlts },
-                (_, i) => r.alternates[i] ?? 0
-              ),
-              alternate2A: r.alternate2A ?? 0,
+              alternates: r.alternates, // Use the alternates array directly
+              alternate2A: 0, // Not used anymore
             }))
           );
           setSelectedAlternates([]);
@@ -472,11 +468,8 @@ export default function App() {
               id: idx + 1,
               name: r.name,
               baseBid: r.baseBid,
-              alternates: Array.from(
-                { length: maxAlts },
-                (_, i) => r.alternates[i] ?? 0
-              ),
-              alternate2A: r.alternate2A ?? 0,
+              alternates: r.alternates, // Use the alternates array directly
+              alternate2A: 0, // Not used anymore
             }))
           );
           setSelectedAlternates([]);
