@@ -391,28 +391,21 @@ export default function App() {
   };
 
   const normalizeRow = (obj: Record<string, any>): Omit<Bidder, "id"> => {
-    const name: string =
-      obj.Contractor || obj.Name || obj["Contractor Name"] || "";
-    const base = coerceNumber(
-      obj.Base ?? obj["Base Bid"] ?? obj["Base ($)"] ?? 0
-    );
+    const name: string = obj.Contractor || obj.Name || obj["Contractor Name"] || "";
+    const base = coerceNumber(obj.Base ?? obj["Base Bid"] ?? obj["Base ($)"] ?? 0);
 
-    // Create alternates array with Alt 2A in position 2
+    // Build alternates array with Alt 2A in position 2
     const alternates: number[] = [];
-
-    // Add Alt 1 and Alt 2
     alternates[0] = coerceNumber(obj["Alt 1"] ?? 0);
     alternates[1] = coerceNumber(obj["Alt 2"] ?? 0);
-
-    // Add Alt 2A at position 2
     alternates[2] = coerceNumber(obj["Alt 2A"] ?? 0);
-
-    // Add Alt 3, Alt 4, etc. starting at position 3
+    
+    // Add Alt 3 through Alt 12
     for (let i = 3; i <= 12; i++) {
       alternates[i] = coerceNumber(obj[`Alt ${i}`] ?? 0);
     }
 
-    return { name, baseBid: base, alternates, alternate2A: alt2a };
+    return { name, baseBid: base, alternates, alternate2A: 0 };
   };
 
   const handleImport: React.ChangeEventHandler<HTMLInputElement> = (e) => {
@@ -439,14 +432,12 @@ export default function App() {
               id: idx + 1,
               name: r.name,
               baseBid: r.baseBid,
-              alternates: r.alternates, // Use the alternates array directly
-              alternate2A: 0, // Not used anymore
+              alternates: r.alternates,
+              alternate2A: 0,
             }))
           );
           setSelectedAlternates([]);
-          setAltLabels(
-            Array.from({ length: maxAlts }, (_, i) => `Alt ${i + 1}`)
-          );
+          setAltLabels(["Alt 1", "Alt 2", "Alt 2A", "Alt 3", "Alt 4", "Alt 5", "Alt 6", "Alt 7", "Alt 8", "Alt 9", "Alt 10", "Alt 11", "Alt 12"]);
         } else if (ext === "csv") {
           const text = new TextDecoder().decode(data as ArrayBuffer);
           const lines = text.split(/\r?\n/).filter(Boolean);
@@ -458,24 +449,19 @@ export default function App() {
             return obj;
           });
           const normalized = rows.map(normalizeRow).filter((r) => r.name);
-          const maxAlts = Math.max(
-            0,
-            ...normalized.map((r) => r.alternates.length)
-          );
+          const maxAlts = 13;
           setNumAlternates(maxAlts);
           setBidders(
             normalized.map((r, idx) => ({
               id: idx + 1,
               name: r.name,
               baseBid: r.baseBid,
-              alternates: r.alternates, // Use the alternates array directly
-              alternate2A: 0, // Not used anymore
+              alternates: r.alternates,
+              alternate2A: 0,
             }))
           );
           setSelectedAlternates([]);
-          setAltLabels(
-            Array.from({ length: maxAlts }, (_, i) => `Alt ${i + 1}`)
-          );
+          setAltLabels(["Alt 1", "Alt 2", "Alt 2A", "Alt 3", "Alt 4", "Alt 5", "Alt 6", "Alt 7", "Alt 8", "Alt 9", "Alt 10", "Alt 11", "Alt 12"]);
         } else {
           alert("Please upload a .xlsx, .xls, or .csv file.");
         }
