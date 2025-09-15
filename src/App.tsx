@@ -254,12 +254,20 @@ export default function App() {
 
   // CSV Template (matches importer headers)
   const downloadTemplateCSV = () => {
-    const headers: string[] = [
-      "Contractor",
-      "Base Bid",
-      ...Array.from({ length: numAlternates }, (_, i) => `Alt ${i + 1}`),
-    ];
-    if (has2A) headers.push("Alt 2A");
+    const headers: string[] = ["Contractor", "Base Bid"];
+
+    // Generate alternate headers with 2A in position 3
+    for (let i = 0; i < numAlternates; i++) {
+      if (i === 2) {
+        // Position 3 (0-indexed as 2)
+        headers.push("Alt 2A");
+      } else if (i < 2) {
+        headers.push(`Alt ${i + 1}`); // Alt 1, Alt 2
+      } else {
+        headers.push(`Alt ${i}`); // Alt 3, Alt 4, Alt 5, etc. (shifted by 1)
+      }
+    }
+
     const blankRow = new Array(headers.length).fill("");
     const rows = [headers, blankRow, blankRow, blankRow];
     const csv = rows.map((r) => r.map((c) => `"${c}"`).join(",")).join("\n");
