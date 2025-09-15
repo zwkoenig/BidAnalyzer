@@ -259,7 +259,7 @@ export default function App() {
   // XOR rules
   const xorRules = useMemo<Array<[AltIndex, AltIndex]>>(() => {
     const rules: Array<[AltIndex, AltIndex]> = [];
-    if (has2A) rules.push([1, "alt2A"]); // Alt 2 (index 1) XOR Alt 2A
+    // Remove this line: if (has2A) rules.push([1, "alt2A"]);
     if (xor34 && numAlternates >= 4) rules.push([2, 3]); // Alt 3 XOR Alt 4
     return rules;
   }, [has2A, xor34, numAlternates]);
@@ -349,6 +349,8 @@ export default function App() {
       let next = isOn
         ? prev.filter((x) => x !== indexOr2A)
         : [...prev, indexOr2A];
+
+      // Only apply XOR rules for Alt 3/4 if enabled
       for (const [a, b] of xorRules) {
         if (next.includes(a) && next.includes(b)) {
           const toDrop = indexOr2A === a ? b : indexOr2A === b ? a : b;
@@ -704,7 +706,7 @@ export default function App() {
                 checked={has2A}
                 onChange={toggleHas2A}
               />
-              Include Alt 2A (mutually exclusive with Alt 2)
+              Include Alt 2A
             </label>
 
             {/* Alt 3 vs Alt 4 at the top controls */}
@@ -965,10 +967,6 @@ export default function App() {
                     checked={selectedAlternates.includes("alt2A")}
                     onChange={() => toggleAlternate("alt2A")}
                     className="rounded"
-                    disabled={
-                      selectedAlternates.includes(1) &&
-                      !selectedAlternates.includes("alt2A")
-                    }
                   />
                   <span className="text-stone-800">{alt2ALabel}</span>
                 </label>
